@@ -1,0 +1,83 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Transform: 'Aliyun::Serverless-2018-04-03'
+Resources:
+  log-simple-transcode:
+    Type: 'Aliyun::Serverless::Log'
+    Properties:
+      Description: The log of all the functions of video transcoder app
+    function-logs:
+      Type: 'Aliyun::Serverless::Log::Logstore'
+      Properties:
+        TTL: 365
+        ShardCount: 1
+    access-logs:
+      Type: 'Aliyun::Serverless::Log::Logstore'
+      Properties:
+        TTL: 365
+        ShardCount: 1
+  simple-transcode-service:
+    Type: 'Aliyun::Serverless::Service'
+    Properties:
+      Description: oss trigger function to transcode video
+      LogConfig: 
+        Project: log-simple-transcode
+        Logstore: function-logs
+      Policies:
+        - Version: '1' # Allow ListObjects, Get/PutObject, and FC InvokeFunction
+          Statement:
+            - Effect: Allow
+              Action:
+                - oss:ListObjects
+                - oss:GetObject
+                - oss:PutObject
+                - fc:InvokeFunction
+              Resource: '*'
+      InternetAccess: true
+    transcode:
+      Type: 'Aliyun::Serverless::Function'
+      Properties:
+        Handler: index.handler
+        Runtime: python3
+        Timeout: 600
+        MemorySize: 3072
+        EnvironmentVariables:
+          DST_TARGET: .mp4
+          OUTPUT_DST: video/outputs/
+        CodeUri: ./functions/transcode
+      Events:
+          oss-t-mov:
+            Type: OSS
+            Properties:
+              Events:
+                - 'oss:ObjectCreated:PutObject'
+                - 'oss:ObjectCreated:PostObject'
+                - 'oss:ObjectCreated:CompleteMultipartUpload'
+              Filter:
+                Key:
+                  Prefix: video/inputs/
+                  Suffix: .mov
+              BucketName: fc-hz-demo 
+          oss-t-flv:
+            Type: OSS
+            Properties:
+              Events:
+                - 'oss:ObjectCreated:PutObject'
+                - 'oss:ObjectCreated:PostObject'
+                - 'oss:ObjectCreated:CompleteMultipartUpload'
+              Filter:
+                Key:
+                  Prefix: video/inputs/
+                  Suffix: .flv
+              BucketName: fc-hz-demo 
+          oss-t-mp4:
+            Type: OSS
+            Properties:
+              Events:
+                - 'oss:ObjectCreated:PutObject'
+                - 'oss:ObjectCreated:PostObject'
+                - 'oss:ObjectCreated:CompleteMultipartUpload'
+              Filter:
+                Key:
+                  Prefix: video/inputs/
+                  Suffix: .mp4
+              BucketName: fc-hz-demo 
