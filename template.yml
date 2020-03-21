@@ -8,22 +8,23 @@ Resources:
     function-logs:
       Type: 'Aliyun::Serverless::Log::Logstore'
       Properties:
-        TTL: 365
+        TTL: 10
         ShardCount: 1
     access-logs:
       Type: 'Aliyun::Serverless::Log::Logstore'
       Properties:
-        TTL: 365
+        TTL: 10
         ShardCount: 1
+
   simple-transcode-service:
     Type: 'Aliyun::Serverless::Service'
     Properties:
-      Description: oss trigger function to transcode video
+      Description: oss trigger function to transcode video, the function of service
       LogConfig: 
         Project: log-simple-transcode
         Logstore: function-logs
       Policies:
-        - Version: '1' # Allow ListObjects, Get/PutObject, and FC InvokeFunction
+        - Version: '1' 
           Statement:
             - Effect: Allow
               Action:
@@ -31,8 +32,20 @@ Resources:
                 - oss:GetObject
                 - oss:PutObject
                 - fc:InvokeFunction
+                - log:CreateDashboard
+                - log:CreateIndex
+                - log:UpdateIndex
               Resource: '*'
+
       InternetAccess: true
+    init-helper:
+      Type: 'Aliyun::Serverless::Function'
+      Properties:
+        Handler: index.handler
+        Runtime: python2.7
+        Timeout: 600
+        MemorySize: 512
+        CodeUri: ./functions/init-helper
     transcode:
       Type: 'Aliyun::Serverless::Function'
       Properties:
@@ -56,7 +69,7 @@ Resources:
                 Key:
                   Prefix: video/inputs/
                   Suffix: .mov
-              BucketName: fc-hz-demo 
+              BucketName: bucket-demo
           oss-t-flv:
             Type: OSS
             Properties:
@@ -68,7 +81,7 @@ Resources:
                 Key:
                   Prefix: video/inputs/
                   Suffix: .flv
-              BucketName: fc-hz-demo 
+              BucketName: bucket-demo
           oss-t-mp4:
             Type: OSS
             Properties:
@@ -80,4 +93,4 @@ Resources:
                 Key:
                   Prefix: video/inputs/
                   Suffix: .mp4
-              BucketName: fc-hz-demo 
+              BucketName: bucket-demo
