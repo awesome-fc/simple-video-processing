@@ -2,7 +2,7 @@
 
 假设您是对视频进行简单的处理， 架构方案图如下：
 
-![image](main.png)
+![](https://img.alicdn.com/tfs/TB1whybzbj1gK0jSZFuXXcrHpXa-758-329.png)
 
 如上图所示， 用户上传格式为 .mov, .mp4, .flv 格式的视频到 OSS 指定前缀目录(该示例是 video/inputs/), OSS 触发器自动触发函数执行， 函数调用 FFmpeg 进行视频转码(在该示例中是将视频统一转为 640*480 的 mp4)， 并且将转码后的视频保存回 OSS 指定的输出目录(该示例是 video/outputs/)。
 
@@ -35,7 +35,9 @@ git clone  https://github.com/awesome-fc/simple-video-processing.git
 
     > - 全局将 BucketName `fc-hz-demo` 修改成自己的bucket,  有三处需要修改
 
-- 执行 `fun deploy `,  成功部署相应的函数和日志库
+    > - 注意: logstore名字 `function-logs`、 `access-logs` 和函数名字 `transcode` 一定不要修改， 后面的自定义 dashboard 依赖这三个名字， 详情可见后面章节的 dashboard 原理
+
+- 执行 `fun deploy`,  成功部署相应的函数和日志库
 
 - 执行 `fun invoke simple-transcode-service/init-helper -e '{"project":"log-simple-transcode2"}'`, 自动创建 custom-dashboard
     > 其中这里的 -e 参数中的 project 修改成您的 yml 中日志 project
@@ -43,15 +45,23 @@ git clone  https://github.com/awesome-fc/simple-video-processing.git
 - 手动[配置日志大盘](https://help.aliyun.com/document_detail/92647.html)
     ![](https://img.alicdn.com/tfs/TB1RhQLy5_1gK0jSZFqXXcpaXXa-1510-848.png)
 
-完成上面步骤以后， 您可以在相应的 logproject 看到如下两个 dashboard:
+完成上面步骤以后， 您可以在相应的 logproject 的仪表盘 tab 下看到如下两个 dashboard:
 
 ![](https://img.alicdn.com/tfs/TB1XYIOy7T2gK0jSZFkXXcIQFXa-1516-766.png)
+
+> 或者您直接在浏览器输入 `https://sls.console.aliyun.com/lognext/project/<yourProjectName>/dashboard/dashboard-1584429478961-890738` 跳转到音视频监控系统 dashboard,  <yourProjectName> 替换成您的 log Project
 
 后面您可以往您配置的 bucket video/inputs 目录上传视频， 然后会触发函数进行视频的自动转码， 之后， 您将会获得如下音视频监控效果图:
 
 <img src="transcode-monitor.gif?raw=true">
 
-当然您可以参考这个 sample 构造更适合自己场景的自定义 dashboard， 对于该示例， 只需要打印具有如下key的json字符串即可
+**dashboard 原理图:**
+
+![](https://img.alicdn.com/tfs/TB1Jo4.zoY1gK0jSZFCXXcwqXXa-1744-904.png)
+
+1. dashboard.json 依赖 logstore名字 `function-logs`、 `access-logs` 和函数名字 `transcode`， 所以最好不要修改， 要改则一起改。
+
+2. 您可以参考这个 sample 构造更适合自己场景的自定义 dashboard， 对于该示例， 只需要打印具有如下key的json字符串即可
 
 ```python
 json_log={
