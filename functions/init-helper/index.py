@@ -21,7 +21,7 @@ def handler(event, context):
     token_list = [',', ' ', "'", '"', ';', '=', '(', ')', '[', ']', '{',  '}',
                   '?', '@', '&', '<', '>', '/', ':', '\n', '\t', '\r']
     line_config = IndexLineConfig(token_list, True, chinese=True)
-    key_config_list = {"message": IndexKeyConfig(token_list, True, chinese=True)}
+    key_config_list = {"message": IndexKeyConfig(token_list, True, 'text', doc_value=True, chinese=True)}
     index_detail = IndexConfig(10, line_config, key_config_list)
     res = client.update_index(project, function_logs, index_detail)
     res.log_print()
