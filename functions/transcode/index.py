@@ -70,7 +70,8 @@ def handler(event, context):
         }
         print(json.dumps(err_ret))
 
-    oss_client.put_object_from_file(OUTPUT_DST + shortname + DST_TARGET , transcoded_filepath)
+    oss_client.put_object_from_file(
+        os.path.join(OUTPUT_DST, shortname + DST_TARGET), transcoded_filepath)
     
     if os.path.exists(transcoded_filepath):
         os.remove(transcoded_filepath)

@@ -1,6 +1,8 @@
 ## 简介
 
-假设您是对视频进行简单的处理， 架构方案图如下：
+本项目是[轻松构建基于 Serverless 架构的弹性高可用视频处理系统](https://yq.aliyun.com/articles/727684) 的示例工程。
+
+假设您是对视频进行单纯的处理， 架构方案图如下：
 
 ![](https://img.alicdn.com/tfs/TB1sPfQzhD1gK0jSZFKXXcJrVXa-612-185.png)
 
@@ -14,7 +16,8 @@
 
 因为音视频处理是强 CPU 密集型计算，强烈建议直接函数内存设置为 3G(2vCPU)， 当函数计算的执行环境有时间长度限制，如果 10 分钟不能满足您的需求， 您可以选择:
 
-- 对视频进行分片 -> 转码 -> 合成处理， 详情参考：[fc-fnf-video-processing](https://github.com/awesome-fc/fc-fnf-video-processing/tree/master/video-processing)
+- 对视频进行分片 -> 转码 -> 合成处理， 详情参考：[视频处理工作流系统](https://github.com/awesome-fc/fc-fnf-video-processing/tree/master/video-processing)
+    > Sereverless 工作流可以编排各种复杂的视频处理工作流程，比如第一步是分片转码， 第二步是将转码后的详情记录到数据， 第三步是根据视频属性决定是否将该视频预热到 CDN 等， 所有的步骤都是可以完全自定义的
 
 - 联系函数计算团队(钉钉群号: 11721331) 或者提工单
     - 适当放宽执行时长限制
