@@ -5,12 +5,12 @@ import os
 import time
 import json
 import subprocess
+import shutil
 
 logging.getLogger("oss2.api").setLevel(logging.ERROR)
 logging.getLogger("oss2.auth").setLevel(logging.ERROR)
 
 OUTPUT_DST = os.environ["OUTPUT_DST"]
-DST_TARGET = os.environ["DST_TARGET"]
 
 # a decorator for print custom json log of handler
 def print_excute_json_log(func):
@@ -57,10 +57,19 @@ def handler(event, context):
     auth = oss2.StsAuth(creds.accessKeyId, creds.accessKeySecret, creds.securityToken)
     oss_client = oss2.Bucket(auth, 'oss-%s-internal.aliyuncs.com' % context.region, oss_bucket_name)
     input_path = oss_client.sign_url('GET', object_key, 6 * 3600)
-    transcoded_filepath = '/tmp/' + shortname + DST_TARGET
-    cmd = ["/code/ffmpeg", "-y", "-i", input_path, "-vf", "scale=640:480", "-b:v", "800k", "-bufsize", "800k", transcoded_filepath]
+    transcoded_filepath = '/tmp/' + shortname + extension
+    ts_dir = '/tmp/ts'
+    if os.path.exists(ts_dir):
+         shutil.rmtree(ts_dir)
+    os.mkdir(ts_dir)
+    split_transcoded_filepath = os.path.join(ts_dir, shortname + '_%03d.ts')
+    cmd1 = ['/code/ffmpeg', '-y', '-threads', '2', '-i', input_path, '-c:v', 'libx264', '-r', '30',
+            '-c:a', 'libfdk_aac', '-ab', '800k', '-ar', '44100', transcoded_filepath]
+    cmd2 = ['/code/ffmpeg', '-y', '-i', transcoded_filepath, '-c', 'copy', '-map', '0', '-f', 'segment',
+            '-segment_list', os.path.join(ts_dir, 'playlist.m3u8'), '-segment_time', '10', split_transcoded_filepath]
     try:
-        subprocess.check_call(cmd)
+        subprocess.check_call(cmd1)
+        subprocess.check_call(cmd2)
     except subprocess.CalledProcessError as exc:
         err_ret = {
             'request_id': context.request_id,
@@ -70,10 +79,14 @@ def handler(event, context):
         }
         print(json.dumps(err_ret))
 
-    oss_client.put_object_from_file(
-        os.path.join(OUTPUT_DST, shortname + DST_TARGET), transcoded_filepath)
-    
     if os.path.exists(transcoded_filepath):
         os.remove(transcoded_filepath)
+    
+    for filename in os.listdir(ts_dir):
+        filepath = os.path.join(ts_dir,filename)
+        filekey = os.path.join(OUTPUT_DST, shortname, filename)
+        oss_client.put_object_from_file(filekey, filepath)
+        os.remove(filepath)
+        print("Uploaded {} to {}".format(filepath, filekey))
     
     return "ok"

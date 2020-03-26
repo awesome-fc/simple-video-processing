@@ -1,7 +1,7 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Transform: 'Aliyun::Serverless-2018-04-03'
 Resources:
-  log-simple-transcode:
+  log-simple-transcode2:
     Type: 'Aliyun::Serverless::Log'
     Properties:
       Description: The log of all the functions of video transcoder app
@@ -16,12 +16,12 @@ Resources:
         TTL: 10
         ShardCount: 1
 
-  simple-transcode-service:
+  simple-transcode-service2:
     Type: 'Aliyun::Serverless::Service'
     Properties:
       Description: oss trigger function to transcode video, the function of service
       LogConfig: 
-        Project: log-simple-transcode
+        Project: log-simple-transcode2
         Logstore: function-logs
       Policies:
         - Version: '1' 
@@ -51,10 +51,10 @@ Resources:
       Properties:
         Handler: index.handler
         Runtime: python3
-        Timeout: 600
+        Timeout: 3600
         MemorySize: 3072
         EnvironmentVariables:
-          DST_TARGET: .mp4
+          DST_TARGET: .ts
           OUTPUT_DST: video/outputs/
         CodeUri: ./functions/transcode
       Events:
@@ -68,29 +68,5 @@ Resources:
               Filter:
                 Key:
                   Prefix: video/inputs/
-                  Suffix: .mov
-              BucketName: bucket-demo
-          oss-t-flv:
-            Type: OSS
-            Properties:
-              Events:
-                - 'oss:ObjectCreated:PutObject'
-                - 'oss:ObjectCreated:PostObject'
-                - 'oss:ObjectCreated:CompleteMultipartUpload'
-              Filter:
-                Key:
-                  Prefix: video/inputs/
-                  Suffix: .flv
-              BucketName: bucket-demo
-          oss-t-mp4:
-            Type: OSS
-            Properties:
-              Events:
-                - 'oss:ObjectCreated:PutObject'
-                - 'oss:ObjectCreated:PostObject'
-                - 'oss:ObjectCreated:CompleteMultipartUpload'
-              Filter:
-                Key:
-                  Prefix: video/inputs/
-                  Suffix: .mp4
-              BucketName: bucket-demo
+                  Suffix: ''
+              BucketName: ts-test-video
