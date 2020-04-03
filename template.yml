@@ -1,7 +1,7 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Transform: 'Aliyun::Serverless-2018-04-03'
 Resources:
-  log-simple-transcode2:
+  log-simple-transcode3:
     Type: 'Aliyun::Serverless::Log'
     Properties:
       Description: The log of all the functions of video transcoder app
@@ -16,12 +16,12 @@ Resources:
         TTL: 10
         ShardCount: 1
 
-  simple-transcode-service2:
+  simple-transcode-service:
     Type: 'Aliyun::Serverless::Service'
     Properties:
       Description: oss trigger function to transcode video, the function of service
       LogConfig: 
-        Project: log-simple-transcode2
+        Project: log-simple-transcode3
         Logstore: function-logs
       Policies:
         - Version: '1' 
@@ -55,18 +55,4 @@ Resources:
         MemorySize: 3072
         EnvironmentVariables:
           DST_TARGET: .ts
-          OUTPUT_DST: video/outputs/
         CodeUri: ./functions/transcode
-      Events:
-          oss-t-mov:
-            Type: OSS
-            Properties:
-              Events:
-                - 'oss:ObjectCreated:PutObject'
-                - 'oss:ObjectCreated:PostObject'
-                - 'oss:ObjectCreated:CompleteMultipartUpload'
-              Filter:
-                Key:
-                  Prefix: video/inputs/
-                  Suffix: ''
-              BucketName: ts-test-video

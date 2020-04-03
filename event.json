@@ -1,0 +1,5 @@
+{
+    "bucket":"fc-hz-demo", 
+    "object":"fnf_video/inputs/480P.mp4",
+    "output_dir": "fnf_video/outputs/"
+}
