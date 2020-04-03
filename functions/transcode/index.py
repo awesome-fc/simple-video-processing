@@ -46,8 +46,13 @@ def handler(event, context):
             'returncode': exc.returncode, 
             'cmd': exc.cmd,
             'output': exc.output,
+            'event': event,
         }
         print(json.dumps(err_ret))
+        # if transcode fail， send event to mns queue or insert in do db
+        # ...
+        raise Exception(context.request_id + " transcode failure")
+        return
 
     if os.path.exists(transcoded_filepath):
         os.remove(transcoded_filepath)
@@ -58,6 +63,9 @@ def handler(event, context):
         oss_client.put_object_from_file(filekey, filepath)
         os.remove(filepath)
         print("Uploaded {} to {}".format(filepath, filekey))
+        
+    # if transcode succ， send event to mns queue or insert in do db
+    # ...
         
     simplifiedmeta = oss_client.get_object_meta(object_key)
     size = float(simplifiedmeta.headers['Content-Length'])
