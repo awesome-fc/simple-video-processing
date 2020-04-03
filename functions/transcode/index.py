@@ -6,9 +6,28 @@ import time
 import json
 import subprocess
 import shutil
+from mns.account import Account
+from mns.queue import *
 
 logging.getLogger("oss2.api").setLevel(logging.ERROR)
 logging.getLogger("oss2.auth").setLevel(logging.ERROR)
+
+accid = "<your ak id>"
+acckey = "<your ak secret>"
+# internal endpoint, if region is not same, remove internal
+endpoint = "http://<your uid>.mns.<your region>-internal.aliyuncs.com/"
+my_mns_account = Account(endpoint, accid, acckey)
+queue_name = "<your queue>"
+my_queue = my_mns_account.get_queue(queue_name)
+
+def send_mns_msg(msg_body):
+    msg = Message(msg_body)
+    try:
+        re_msg = my_queue.send_message(msg)
+        print("Send Message Succeed! MessageBody:%s MessageID:%s" %
+              (msg_body, re_msg.message_id))
+    except MNSExceptionBase as e:
+        print("Send Message Fail! Exception:%s\n" % e)
 
 def get_fileNameExt(filename):
     (fileDir, tempfilename) = os.path.split(filename)
@@ -46,11 +65,16 @@ def handler(event, context):
             'returncode': exc.returncode, 
             'cmd': exc.cmd,
             'output': exc.output,
-            'event': event,
+            'event': evt,
         }
         print(json.dumps(err_ret))
         # if transcode fail， send event to mns queue or insert in do db
         # ...
+        send_mns_msg(json.dumps({
+            'request_id': context.request_id,
+            'result': "fail",
+            'event': evt,
+        }))
         raise Exception(context.request_id + " transcode failure")
         return
 
@@ -66,6 +90,11 @@ def handler(event, context):
         
     # if transcode succ， send event to mns queue or insert in do db
     # ...
+    send_mns_msg(json.dumps({
+        'request_id': context.request_id,
+        'result': "succ",
+        'event': evt,
+    }))
         
     simplifiedmeta = oss_client.get_object_meta(object_key)
     size = float(simplifiedmeta.headers['Content-Length'])
