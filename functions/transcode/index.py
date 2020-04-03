@@ -58,6 +58,8 @@ def handler(event, context):
     oss_client = oss2.Bucket(auth, 'oss-%s-internal.aliyuncs.com' % context.region, oss_bucket_name)
     input_path = oss_client.sign_url('GET', object_key, 6 * 3600)
     transcoded_filepath = '/tmp/' + shortname + DST_TARGET
+    if os.path.exists(transcoded_filepath):
+        os.remove(transcoded_filepath)
     cmd = ["/code/ffmpeg", "-y", "-i", input_path, "-vf", "scale=640:480", "-b:v", "800k", "-bufsize", "800k", transcoded_filepath]
     try:
         subprocess.check_call(cmd)
@@ -67,11 +69,19 @@ def handler(event, context):
             'returncode': exc.returncode, 
             'cmd': exc.cmd,
             'output': exc.output,
+            'event': evt,
         }
         print(json.dumps(err_ret))
+        # if transcode fail， send event to mns queue or insert in do db
+        # ...
+        raise Exception(context.request_id + " transcode failure")
+        return
 
     oss_client.put_object_from_file(
         os.path.join(OUTPUT_DST, shortname + DST_TARGET), transcoded_filepath)
+    
+    # if transcode succ， send event to mns queue or insert in do db
+    # ...
     
     if os.path.exists(transcoded_filepath):
         os.remove(transcoded_filepath)
