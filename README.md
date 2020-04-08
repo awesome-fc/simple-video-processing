@@ -6,7 +6,7 @@
 
 ![](https://img.alicdn.com/tfs/TB1sPfQzhD1gK0jSZFKXXcJrVXa-612-185.png)
 
-如上图所示， 用户上传格式为 .mov, .mp4, .flv 格式的视频到 OSS 指定前缀目录(该示例是 video/inputs/), OSS 触发器自动触发函数执行， 函数调用 FFmpeg 进行视频转码(在该示例中是将视频统一转为 640*480 的 mp4)， 并且将转码后的视频保存回 OSS 指定的输出目录(该示例是 video/outputs/)。
+如上图所示， 用户上传任意格式的视频到 OSS 指定前缀目录(该示例是 video/inputs/), OSS 触发器自动触发函数执行， 函数调用 FFmpeg 进行视频转码(在该示例中是将视频统一转为 640*480 的 mp4)， 并且将转码后的视频保存回 OSS 指定的输出目录(该示例是 video/outputs/)。
 
 您可以直接登录 [函数计算控制台](https://statistics.functioncompute.com/?title=ServerlessVideo&theme=ServerlessVideo&author=rsong&src=article&url=http://fc.console.aliyun.com)，选择应用中心的 **FFmpeg 视频转码服务** 这个应用一键配置并部署。
 
@@ -35,6 +35,7 @@
 - 可以和 serverless 工作流完成更加复杂、自定义的任务编排，比如视频转码完成后，记录转码详情到数据库，同时自动将热度很高的视频预热到 CDN 上， 从而缓解源站压力
 - 更多的方式的事件驱动， 比如可以选择 OSS 自动触发(丰富的触发规则)， 也可以根据业务选择 MNS 消息(支持 tag 过滤)触发
 - 在大部分场景下具有很强的成本竞争力
+- 自定义视频处理流程中可能会有多种操作组合， 比如转码、加水印和生成视频首页 GIF。后续为视频处理系统增加新需求，比如调整转码参数，新功能发布上线对原来的视频转码任务无影响
 
 **2. 相比于其他自建服务:**
 
@@ -43,6 +44,8 @@
 - 函数计算采用 3AZ 部署， 安全性高，计算资源也是多 AZ 获取， 能保证每个用户需要的算力峰值
 - 开箱即用的监控系统， 如上面 gif 动图所示，可以多维度监控函数的执行情况，根据监控快速定位问题，同时给用户提供分析能力， 比如视频的格式分布， size 分布等
 - 在大部分场景下具有很强的成本竞争力， 因为在函数计算是真正的按量付费(计费粒度在百毫秒)， 可以理解为 CPU 的利用率为 100%
+
+如果您关注成本比对分析， 可以关注 [轻松构建基于 Serverless 架构的弹性高可用视频处理系统](https://yq.aliyun.com/articles/727684) 中的 `更低的成本` 章节， 那边有完善的数据和分析。
 
 ## 操作部署
 
@@ -108,9 +111,21 @@ json_log={
     "video_format": extension[1:],
     "size": M_size, #单位是M
     "start_time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start_time_stamp+8*3600)), #北京时间
-    "end_time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(end_time_stamp+8*3600)), #北京时间
-    "elapsed_time": elapsed_time, #单位是秒
     "processed_video_location": OUTPUT_DST,
 }
 print(json.dumps(json_log))
+```
+> 注意: 调用 ffmpeg 命令的时候， 最好将 ffmpeg 命令输出到 stdout 和 stderr 中日志不要打印出来， 理由如下：
+> - 成功调用无效打印， 日志意义不大
+> - FFmpeg 执行的日志有极低可能会影响后面的日志收集到 SLS
+
+比如 python 的做法：
+
+```python
+try:
+    result = subprocess.run(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+except subprocess.CalledProcessError as exc:
+    print(result.stderr.decode()) # FFmpeg 命令有错才打印
+
 ```

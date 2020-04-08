@@ -9,12 +9,12 @@ Resources:
       Type: 'Aliyun::Serverless::Log::Logstore'
       Properties:
         TTL: 10
-        ShardCount: 1
+        ShardCount: 2
     access-logs:
       Type: 'Aliyun::Serverless::Log::Logstore'
       Properties:
         TTL: 10
-        ShardCount: 1
+        ShardCount: 2
 
   simple-transcode-service:
     Type: 'Aliyun::Serverless::Service'

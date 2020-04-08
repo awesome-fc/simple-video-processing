@@ -34,8 +34,15 @@ def get_fileNameExt(filename):
     (shortname, extension) = os.path.splitext(tempfilename)
     return shortname, extension
 
+def get_beijing_time_str(utc_time_stamp):
+    local_time = time.localtime(utc_time_stamp + 8*3600)
+    data_head = time.strftime("%Y-%m-%d %H:%M:%S", local_time)
+    data_secs = (utc_time_stamp - int(utc_time_stamp)) * 1000
+    beijing_time_str = "%s.%03d" % (data_head, data_secs)
+    return beijing_time_str
+
 def handler(event, context):
-    start_time_stamp = time.time()
+    utc_now = time.time()
     evt = json.loads(event)
     oss_bucket_name = evt["bucket"]
     object_key = evt["object"]
@@ -45,6 +52,20 @@ def handler(event, context):
     auth = oss2.StsAuth(creds.accessKeyId, creds.accessKeySecret, creds.securityToken)
     oss_client = oss2.Bucket(auth, 'oss-%s-internal.aliyuncs.com' %
                              context.region, oss_bucket_name)
+    simplifiedmeta = oss_client.get_object_meta(object_key)
+    size = float(simplifiedmeta.headers['Content-Length'])
+    M_size = round(size / 1024.0 / 1024.0, 2)
+    
+    json_log = {
+        "request_id": context.request_id,
+        "video_name": object_key,
+        "video_format": extension[1:],
+        "size": M_size,
+        "start_time": get_beijing_time_str(utc_now),
+        "processed_video_location": OUTPUT_DST,
+    }
+    print(json.dumps(json_log))
+    
     input_path = oss_client.sign_url('GET', object_key, 6 * 3600)
     transcoded_filepath = '/tmp/' + shortname + extension
     ts_dir = '/tmp/ts'
@@ -57,14 +78,18 @@ def handler(event, context):
     cmd2 = ['/code/ffmpeg', '-y', '-i', transcoded_filepath, '-c', 'copy', '-map', '0', '-f', 'segment',
             '-segment_list', os.path.join(ts_dir, 'playlist.m3u8'), '-segment_time', '10', split_transcoded_filepath]
     try:
-        subprocess.check_call(cmd1)
-        subprocess.check_call(cmd2)
+        result1 = subprocess.run(
+            cmd1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        result2 = subprocess.run(
+            cmd2, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
     except subprocess.CalledProcessError as exc:
         err_ret = {
             'request_id': context.request_id,
             'returncode': exc.returncode, 
             'cmd': exc.cmd,
-            'output': exc.output,
+            'output': exc.output.decode(),
+            'err_log1': result1.stderr.decode(),
+            'err_log2': result2.stderr.decode(),
             'event': evt,
         }
         print(json.dumps(err_ret))
@@ -95,22 +120,5 @@ def handler(event, context):
         'result': "succ",
         'event': evt,
     }))
-        
-    simplifiedmeta = oss_client.get_object_meta(object_key)
-    size = float(simplifiedmeta.headers['Content-Length'])
-    M_size = round(size / 1024.0 / 1024.0, 2)
-    end_time_stamp = time.time()
-    elapsed_time = end_time_stamp - start_time_stamp
-    json_log={
-        "request_id": context.request_id,
-        "video_name": object_key,
-        "video_format": extension[1:],
-        "size": M_size,
-        "start_time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start_time_stamp+8*3600)),
-        "end_time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(end_time_stamp+8*3600)),
-        "elapsed_time": elapsed_time,
-        "processed_video_location": OUTPUT_DST,
-    }
-    print(json.dumps(json_log))
     
     return "ok"
