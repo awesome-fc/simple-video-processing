@@ -9,12 +9,12 @@ Resources:
       Type: 'Aliyun::Serverless::Log::Logstore'
       Properties:
         TTL: 10
-        ShardCount: 1
+        ShardCount: 2
     access-logs:
       Type: 'Aliyun::Serverless::Log::Logstore'
       Properties:
         TTL: 10
-        ShardCount: 1
+        ShardCount: 2
 
   simple-transcode-service:
     Type: 'Aliyun::Serverless::Service'
@@ -58,7 +58,7 @@ Resources:
           OUTPUT_DST: video/outputs/
         CodeUri: ./functions/transcode
       Events:
-          oss-t-mov:
+          oss-t:
             Type: OSS
             Properties:
               Events:
@@ -68,29 +68,5 @@ Resources:
               Filter:
                 Key:
                   Prefix: video/inputs/
-                  Suffix: .mov
-              BucketName: bucket-demo
-          oss-t-flv:
-            Type: OSS
-            Properties:
-              Events:
-                - 'oss:ObjectCreated:PutObject'
-                - 'oss:ObjectCreated:PostObject'
-                - 'oss:ObjectCreated:CompleteMultipartUpload'
-              Filter:
-                Key:
-                  Prefix: video/inputs/
-                  Suffix: .flv
-              BucketName: bucket-demo
-          oss-t-mp4:
-            Type: OSS
-            Properties:
-              Events:
-                - 'oss:ObjectCreated:PutObject'
-                - 'oss:ObjectCreated:PostObject'
-                - 'oss:ObjectCreated:CompleteMultipartUpload'
-              Filter:
-                Key:
-                  Prefix: video/inputs/
-                  Suffix: .mp4
+                  Suffix: ""
               BucketName: bucket-demo

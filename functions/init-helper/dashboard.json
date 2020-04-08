@@ -3,942 +3,804 @@
     "description": "",
     "displayName": "Transcode-Monitor",
     "attribute": {},
-    "charts": [
-        {
-            "title": "log-simple-transcode1584429478961",
-            "type": "table",
-            "search": {
-                "end": "now",
-                "logstore": "access-logs",
-                "query": "*| SELECT  t0.video_name AS \"视频名称\"\n        ,CASE    WHEN t1.fcStatus = 200 AND t1.functionErrors>0 THEN '函数错误'\n                 WHEN t1.fcStatus = 500 THEN '系统错误'\n                 WHEN t1.fcStatus = 429 OR t1.fcStatus = 503 THEN '流控错误' \n                 ELSE '转码成功' \n         END AS \"转码状态\"\n        ,t0.request_id AS \"RequestID\"\n        ,t0.start_time AS \"开始执行时间\"\n        ,t0.end_time AS \"执行结束时间\"\n        ,round(CAST(t0.elapsed_time AS DOUBLE),2) AS \"执行时长(s)\"\n        ,round(t1.maxMemoryUsage,2) AS \"消耗内存(MB)\"\n        ,t0.processed_video_location AS \"输出文件位置\"\nFROM    (\n            SELECT  video_name\n                    ,request_id\n                    ,start_time\n                    ,end_time\n                    ,elapsed_time\n                    ,processed_video_location\n            FROM    (\n                        SELECT  json_extract_scalar(message, '$.video_name') AS video_name\n                                ,json_extract_scalar(message, '$.request_id') AS request_id\n                                ,json_extract_scalar(message, '$.start_time') AS start_time\n                                ,json_extract_scalar(message, '$.end_time') AS end_time\n                                ,json_extract_scalar(message, '$.elapsed_time') AS elapsed_time\n                                ,json_extract_scalar(message, '$.processed_video_location') AS processed_video_location\n                        FROM    FUNCTION-logs\n                    ) \n            WHERE   video_name IS NOT NULL\n        ) t0\nRIGHT OUTER JOIN (\n                    SELECT  maxMemoryUsage\n                            ,requestID\n                            ,functionErrors\n                            ,fcStatus\n                    FROM    access-logs\n                ) t1\nON      t0.request_id = t1.requestID\nORDER BY t0.end_time DESC",
-                "start": "-86400s",
-                "tokenQuery": "*|SELECT  t0.video_name AS \"视频名称\"\n        ,t1.fcStatus AS \"执行状态\"\n        ,t0.request_id AS \"RequestID\"\n        ,t0.start_time AS \"开始执行时间\"\n        ,t0.end_time AS \"执行结束时间\"\n        ,t0.elapsed_time AS \"执行时长(s)\"\n        ,t1.maxMemoryUsage AS \"消耗内存(MB)\"\n        ,t0.processed_video_location AS \"输出文件\"\nFROM    (\n            SELECT  video_name\n                    ,request_id\n                    ,start_time\n                    ,end_time\n                    ,elapsed_time\n                    ,processed_video_location\n            FROM    (\n                        SELECT  json_extract_scalar(message, '$.video_name') AS video_name\n                                ,json_extract_scalar(message, '$.request_id') AS request_id\n                                ,json_extract_scalar(message, '$.start_time') AS start_time\n                                ,json_extract_scalar(message, '$.end_time') AS end_time\n                                ,json_extract_scalar(message, '$.elapsed_time') AS elapsed_time\n                                ,json_extract_scalar(message, '$.processed_video_location') AS processed_video_location\n                        FROM    function-logs\n                    )\n            WHERE   video_name IS NOT NULL\n        ) t0\nLEFT OUTER JOIN (\n                    SELECT  maxMemoryUsage\n                            ,requestID\n                            ,fcStatus\n                    FROM    access-logs\n                ) t1\nON      t0.request_id = t1.requestID ORDER BY t0.end_time DESC",
-                "tokens": [],
-                "topic": ""
-            },
-            "display": {
-                "closeDefault": false,
-                "closeSearch": false,
-                "closeSort": false,
-                "closedKeys": [],
-                "displayName": "任务执行详情",
-                "height": 5.7954545,
-                "highlight": false,
-                "pageSize": 20,
-                "realWidth": true,
-                "showBackground": true,
-                "showBorder": true,
-                "showTitle": true,
-                "sparkline": false,
-                "transpose": false,
-                "width": 9.61,
-                "xPos": 0.25,
-                "yPos": 21.193182,
-                "zIndex": 0
-            },
-            "action": {
-                "RequestID": {
-                    "type": "disabled"
-                },
-                "开始执行时间": {
-                    "type": "disabled"
-                },
-                "执行时长(s)": {
-                    "type": "disabled"
-                },
-                "执行状态": {
-                    "type": "disabled"
-                },
-                "执行结束时间": {
-                    "type": "disabled"
-                },
-                "消耗内存(MB)": {
-                    "type": "disabled"
-                },
-                "视频名称": {
-                    "type": "disabled"
-                },
-                "转码状态": {},
-                "输出文件": {
-                    "type": "disabled"
-                },
-                "输出文件位置": {}
-            }
+    "charts": [{
+        "title": "log-simple-transcode1584429478961",
+        "type": "table",
+        "search": {
+            "end": "now",
+            "logstore": "access-logs",
+            "query": "*| SELECT  t0.video_name AS \"视频名称\"\n        ,CASE    WHEN t1.fcStatus = 200 AND t1.functionErrors>0 THEN '函数错误'\n                 WHEN t1.fcStatus = 500 THEN '系统错误'\n                 WHEN t1.fcStatus = 429 OR t1.fcStatus = 503 THEN '流控错误' \n                 WHEN t1.fcStatus = 200 AND t1.functionErrors=0 THEN '转码成功'\n                 ELSE '转码中'                 \n         END AS \"转码状态\"\n        ,t0.request_id AS \"RequestID\"\n        ,t0.start_time AS \"开始执行时间\" \n        ,coalesce(CAST( from_unixtime(CAST(to_unixtime(concat(t0.start_time,' Asia/Shanghai')) AS DOUBLE) + CAST(t1.durationMs/1000 AS DOUBLE)) AS VARCHAR),'等待中') AS \"执行结束时间\"\n        ,coalesce(CAST(round(CAST(t1.durationMs/1000 AS DOUBLE),2) AS VARCHAR),'等待中') AS \"执行时长(s)\"\n        ,coalesce(CAST(round(t1.maxMemoryUsage,2) AS VARCHAR),'等待中') AS \"消耗内存(MB)\"\n        ,t0.processed_video_location AS \"输出文件位置\"\nFROM    (SELECT  video_name\n                    ,request_id\n                    ,start_time\n                    ,end_time\n                    ,elapsed_time\n                    ,processed_video_location,status\n            FROM    (\n                        SELECT  json_extract_scalar(message, '$.video_name') AS video_name\n                                ,json_extract_scalar(message, '$.request_id') AS request_id\n                                ,json_extract_scalar(message, '$.start_time') AS start_time\n                                ,json_extract_scalar(message, '$.end_time') AS end_time\n                                ,json_extract_scalar(message, '$.elapsed_time') AS elapsed_time\n                                ,json_extract_scalar(message, '$.processed_video_location') AS processed_video_location\n                                ,json_extract_scalar(message,'$.status') as status\n                        FROM    FUNCTION-logs\n                    ) \n            WHERE   video_name IS NOT NULL\n             \n           \n        ) t0\nLEFT JOIN (   SELECT  maxMemoryUsage\n                        ,requestID\n                        ,functionErrors\n                        ,fcStatus\n                        ,durationMs\n                    FROM    access-logs where requestID is not NULL\n                ) t1\nON      t0.request_id = t1.requestID\n\nORDER BY t0.start_time DESC",
+            "start": "-86400s",
+            "tokenQuery": "*|SELECT  t0.video_name AS \"视频名称\"\n        ,t1.fcStatus AS \"执行状态\"\n        ,t0.request_id AS \"RequestID\"\n        ,t0.start_time AS \"开始执行时间\"\n        ,t0.end_time AS \"执行结束时间\"\n        ,t0.elapsed_time AS \"执行时长(ms)\"\n        ,t1.maxMemoryUsage AS \"消耗内存(MB)\"\n        ,t0.processed_video_location AS \"输出文件\"\nFROM    (\n            SELECT  video_name\n                    ,request_id\n                    ,start_time\n                    ,end_time\n                    ,elapsed_time\n                    ,processed_video_location\n            FROM    (\n                        SELECT  json_extract_scalar(message, '$.video_name') AS video_name\n                                ,json_extract_scalar(message, '$.request_id') AS request_id\n                                ,json_extract_scalar(message, '$.start_time') AS start_time\n                                ,json_extract_scalar(message, '$.end_time') AS end_time\n                                ,json_extract_scalar(message, '$.elapsed_time') AS elapsed_time\n                                ,json_extract_scalar(message, '$.processed_video_location') AS processed_video_location\n                        FROM    function-logs\n                    )\n            WHERE   video_name IS NOT NULL\n        ) t0\nLEFT OUTER JOIN (\n                    SELECT  maxMemoryUsage\n                            ,requestID\n                            ,fcStatus\n                    FROM    access-logs\n                ) t1\nON      t0.request_id = t1.requestID ORDER BY t0.end_time DESC",
+            "tokens": [],
+            "topic": ""
         },
-        {
-            "title": "log-simple-transcode1584430287003",
-            "type": "number",
-            "search": {
-                "end": "now",
-                "logstore": "access-logs",
-                "query": "functionName: transcode | select count(*) as \"总任务数（个）\" from access-logs",
-                "start": "-86400s",
-                "tokenQuery": "functionName: transcode | select count(*) as \"总任务数（个）\" from access-logs",
-                "tokens": [],
-                "topic": ""
-            },
-            "display": {
-                "bgColor": {
-                    "a": 1,
-                    "b": 255,
-                    "g": 255,
-                    "r": 255
-                },
-                "description": "",
-                "descriptionSize": 12,
-                "displayName": "总任务数（个）",
-                "fontColor": {
-                    "a": 1,
-                    "b": 74,
-                    "g": 74,
-                    "r": 74
-                },
-                "fontSize": 24,
-                "formatType": "number",
-                "height": 2.9545455,
-                "numberType": "number",
-                "showBackground": true,
-                "showBorder": true,
-                "showTitle": true,
-                "unit": "个",
-                "unitSize": 12,
-                "width": 3.1,
-                "xAxis": [
-                    "总任务数（个）"
-                ],
-                "xPos": 0.25,
-                "yPos": 0.17045455,
-                "zIndex": 0
-            },
-            "action": {
+        "display": {
+            "closeDefault": false,
+            "closeSearch": false,
+            "closeSort": false,
+            "closedKeys": [],
+            "displayName": "任务执行详情",
+            "height": 5.7954545,
+            "highlight": false,
+            "pageSize": 20,
+            "realWidth": true,
+            "showBackground": true,
+            "showBorder": true,
+            "showTitle": true,
+            "sparkline": false,
+            "transpose": false,
+            "width": 9.61,
+            "xPos": 0.25,
+            "yPos": 21.193182,
+            "zIndex": 0
+        },
+        "action": {
+            "RequestID": {
                 "type": "disabled"
-            }
-        },
-        {
-            "title": "log-simple-transcode1584430486970",
-            "type": "number",
-            "search": {
-                "end": "now",
-                "logstore": "access-logs",
-                "query": "functionName: transcode | SELECT COUNT(*) AS \"处理失败任务数（个）\" FROM access-logs where fcStatus>200 or functionErrors>0",
-                "start": "-86400s",
-                "tokenQuery": "functionName: transcode | SELECT COUNT(*) AS \"处理失败任务数（个）\" FROM access-logs where fcStatus>200",
-                "tokens": [],
-                "topic": ""
             },
-            "display": {
-                "bgColor": {
-                    "a": 1,
-                    "b": 255,
-                    "g": 255,
-                    "r": 255
-                },
-                "description": "",
-                "descriptionSize": 12,
-                "displayName": "处理失败任务数（个）",
-                "fontColor": {
-                    "a": 1,
-                    "b": 27,
-                    "g": 2,
-                    "r": 208
-                },
-                "fontSize": 24,
-                "formatType": "number",
-                "height": 2.9545455,
-                "numberType": "number",
-                "showBackground": true,
-                "showBorder": true,
-                "showTitle": true,
-                "unit": "个",
-                "unitSize": 12,
-                "width": 3.1,
-                "xAxis": [
-                    "处理失败任务数（个）"
-                ],
-                "xPos": 3.5,
-                "yPos": 0.17045455,
-                "zIndex": 0
-            },
-            "action": {
+            "开始执行时间": {
                 "type": "disabled"
-            }
-        },
-        {
-            "title": "log-simple-transcode1584430950526",
-            "type": "number",
-            "search": {
-                "end": "now",
-                "logstore": "access-logs",
-                "query": "functionName: transcode | select round(cast((count_if(fcStatus>200)+count_if(functionErrors>0)) as double)/COUNT(*) as \"处理失败率\" from access-logs",
-                "start": "-86400s",
-                "tokenQuery": "functionName: transcode | select round(cast(count_if(fcStatus>200))) as double/COUNT(*) as \"处理失败率\" from access-logs",
-                "tokens": [],
-                "topic": ""
             },
-            "display": {
-                "bgColor": {
-                    "a": 1,
-                    "b": 255,
-                    "g": 255,
-                    "r": 255
-                },
-                "description": "",
-                "descriptionSize": 12,
-                "displayName": "处理失败率",
-                "fontColor": {
-                    "a": 1,
-                    "b": 27,
-                    "g": 2,
-                    "r": 208
-                },
-                "fontSize": 24,
-                "formatType": "percent",
-                "height": 2.9545455,
-                "numberType": "number",
-                "showBackground": true,
-                "showBorder": true,
-                "showTitle": true,
-                "unit": "",
-                "unitSize": 14,
-                "width": 3.1,
-                "xAxis": [
-                    "处理失败率"
-                ],
-                "xPos": 6.75,
-                "yPos": 0.17045455,
-                "zIndex": 0
-            },
-            "action": {
+            "执行时长(ms)": {
                 "type": "disabled"
-            }
-        },
-        {
-            "title": "log-simple-transcode1584431475555",
-            "type": "line",
-            "search": {
-                "end": "now",
-                "logstore": "access-logs",
-                "query": "functionName: transcode and operation:InvokeFunction   \n| SELECT  date_format(from_unixtime(__time__ - __time__% 600), '%m-%d %H:%i') AS t\n,COUNT(*) AS \"总调用次数\"\nGROUP BY t\nORDER BY t\nLIMIT   1440",
-                "start": "-86400s",
-                "tokenQuery": "functionName: transcode and operation:InvokeFunction   \n| SELECT  date_format(from_unixtime(__time__ - __time__% ${时间聚合粒度(s)}), '%m-%d %H:%i') AS t\n,COUNT(*) AS \"总调用次数\"\nGROUP BY t\nORDER BY t\nLIMIT   1440",
-                "tokens": [
-                    {
-                        "end": 116,
-                        "key": "时间聚合粒度(s)",
-                        "mode": "accurate",
-                        "start": 113,
-                        "value": "600"
-                    }
-                ],
-                "topic": ""
             },
-            "display": {
-                "areaLower": "",
-                "areaUpper": "",
-                "displayName": "TPS",
-                "formatType": "number",
-                "formatTypeRight": "number",
-                "height": 3.5227273,
-                "inputVal": "",
-                "inputValRight": "",
-                "intervalArray": [
-                    ""
-                ],
-                "legendPosition": "right",
-                "lineShape": "smooth",
-                "margin": [
-                    "auto",
-                    100,
-                    "auto",
-                    "auto"
-                ],
-                "pAxis": "",
-                "pointSize": true,
-                "showBackground": true,
-                "showBorder": true,
-                "showTitle": true,
-                "timing": {},
-                "width": 4.78,
-                "xAxis": [
-                    "t"
-                ],
-                "xPos": 0.25,
-                "yAxis": [
-                    "总调用次数"
-                ],
-                "yAxisRight": [],
-                "yPos": 4.818182,
-                "zIndex": 0
-            },
-            "action": {
+            "执行时长(s)": {},
+            "执行状态": {
                 "type": "disabled"
-            }
-        },
-        {
-            "title": "log-simple-transcode1584432140822",
-            "type": "line",
-            "search": {
-                "end": "now",
-                "logstore": "access-logs",
-                "query": "functionName: transcode and operation:InvokeFunction   \n| SELECT  date_format(from_unixtime(__time__ - __time__% 600), '%m-%d %H:%i') AS t\n        ,COUNT_if(functionErrors>0) AS \"函数错误\"\n        ,COUNT_if(fcStatus=429) + count_if(fcStatus=503) AS \"流控错误\"\n        ,COUNT_if(fcStatus=500) AS \"系统错误\"\nGROUP BY t\nORDER BY t\nLIMIT   1440",
-                "start": "-86400s",
-                "tokenQuery": "functionName: transcode and operation:InvokeFunction   \n| SELECT  date_format(from_unixtime(__time__ - __time__% ${时间聚合粒度(s)}), '%m-%d %H:%i') AS t\n        ,COUNT_if(functionErrors>0) AS \"函数错误\"\n        ,COUNT_if(fcStatus=429) + count_if(fcStatus=503) AS \"流控错误\"\n        ,COUNT_if(fcStatus=500) AS \"系统错误\"\nGROUP BY t\nORDER BY t\nLIMIT   1440",
-                "tokens": [
-                    {
-                        "end": 116,
-                        "key": "时间聚合粒度(s)",
-                        "mode": "accurate",
-                        "start": 113,
-                        "value": "600"
-                    }
-                ],
-                "topic": ""
             },
-            "display": {
-                "areaLower": "",
-                "areaUpper": "",
-                "displayName": "执行错误（次）",
-                "formatType": "number",
-                "formatTypeRight": "number",
-                "height": 3.5227273,
-                "inputVal": "",
-                "inputValRight": "",
-                "intervalArray": [
-                    ""
-                ],
-                "legendPosition": "right",
-                "lineShape": "smooth",
-                "margin": [
-                    "auto",
-                    100,
-                    "auto",
-                    "auto"
-                ],
-                "pAxis": "",
-                "pointSize": true,
-                "showBackground": true,
-                "showBorder": true,
-                "showTitle": true,
-                "timing": {},
-                "width": 4.78,
-                "xAxis": [
-                    "t"
-                ],
-                "xPos": 5.07,
-                "yAxis": [
-                    "函数错误",
-                    "流控错误",
-                    "系统错误"
-                ],
-                "yAxisRight": [],
-                "yPos": 4.818182,
-                "zIndex": 0
-            },
-            "action": {
+            "执行结束时间": {
                 "type": "disabled"
-            }
-        },
-        {
-            "title": "log-simple-transcode1584432754720",
-            "type": "line",
-            "search": {
-                "end": "now",
-                "logstore": "access-logs",
-                "query": "functionName: transcode and operation:InvokeFunction   \n| SELECT  date_format(from_unixtime(__time__ - __time__% 600), '%m-%d %H:%i') AS t\n        ,max(durationMs)/1000 as \"最大执行时间\"\n        ,avg(durationMs)/1000 as \"平均执行时间\"\n        ,approx_percentile(durationMs,0.95)/1000 AS \"P95执行时间\" from access-logs\nGROUP BY t\nORDER BY t\nLIMIT   1440",
-                "start": "-86400s",
-                "tokenQuery": "functionName: transcode and operation:InvokeFunction   \n| SELECT  date_format(from_unixtime(__time__ - __time__% ${时间聚合粒度(s)}), '%m-%d %H:%i') AS t\n        ,max(durationMs)/1000 as \"最大执行时间\"\n        ,avg(durationMs)/1000 as \"平均执行时间\"\n        ,approx_percentile(durationMs,0.95)/1000 AS \"P95执行时间\" from access-logs\nGROUP BY t\nORDER BY t\nLIMIT   1440",
-                "tokens": [
-                    {
-                        "end": 116,
-                        "key": "时间聚合粒度(s)",
-                        "mode": "accurate",
-                        "start": 113,
-                        "value": "600"
-                    }
-                ],
-                "topic": ""
             },
-            "display": {
-                "areaLower": "",
-                "areaUpper": "",
-                "displayName": "执行时间(s)",
-                "formatType": "number",
-                "formatTypeRight": "number",
-                "height": 3.5227273,
-                "inputVal": "",
-                "inputValRight": "",
-                "intervalArray": [
-                    ""
-                ],
-                "legendPosition": "right",
-                "lineShape": "smooth",
-                "margin": [
-                    "auto",
-                    100,
-                    "auto",
-                    "auto"
-                ],
-                "pAxis": "",
-                "pointSize": true,
-                "showBackground": true,
-                "showBorder": true,
-                "showTitle": true,
-                "timing": {},
-                "width": 4.78,
-                "xAxis": [
-                    "t"
-                ],
-                "xPos": 0.25,
-                "yAxis": [
-                    "最大执行时间",
-                    "P95执行时间",
-                    "平均执行时间"
-                ],
-                "yAxisRight": [],
-                "yPos": 8.465909,
-                "zIndex": 0
-            },
-            "action": {
+            "消耗内存(MB)": {
                 "type": "disabled"
-            }
-        },
-        {
-            "title": "log-simple-transcode1584433923758",
-            "type": "line",
-            "search": {
-                "end": "now",
-                "logstore": "access-logs",
-                "query": "functionName: transcode and operation:InvokeFunction\n| SELECT  date_format(from_unixtime(__time__ - __time__% 600), '%m-%d %H:%i') AS t\n        ,max(maxMemoryUsage) as \"最大内存\"\n        ,avg(maxMemoryUsage) as \"平均内存\" from access-logs\nGROUP BY t\nORDER BY t\nLIMIT   1440",
-                "start": "-86400s",
-                "tokenQuery": "functionName: transcode and operation:InvokeFunction\n| SELECT  date_format(from_unixtime(__time__ - __time__% ${时间聚合粒度(s)}), '%m-%d %H:%i') AS t\n        ,max(maxMemoryUsage) as \"最大内存\"\n        ,avg(maxMemoryUsage) as \"平均内存\" from access-logs\nGROUP BY t\nORDER BY t\nLIMIT   1440",
-                "tokens": [
-                    {
-                        "end": 113,
-                        "key": "时间聚合粒度(s)",
-                        "mode": "global",
-                        "start": 110,
-                        "value": "600"
-                    }
-                ],
-                "topic": ""
             },
-            "display": {
-                "areaLower": "",
-                "areaUpper": "",
-                "displayName": "内存使用情况(MB)",
-                "formatType": "number",
-                "formatTypeRight": "number",
-                "height": 3.5227273,
-                "inputVal": "",
-                "inputValRight": "",
-                "intervalArray": [
-                    ""
-                ],
-                "legendPosition": "right",
-                "lineShape": "smooth",
-                "margin": [
-                    "auto",
-                    100,
-                    "auto",
-                    "auto"
-                ],
-                "pAxis": "",
-                "pointSize": true,
-                "showBackground": true,
-                "showBorder": true,
-                "showTitle": true,
-                "timing": {},
-                "width": 4.78,
-                "xAxis": [
-                    "t"
-                ],
-                "xPos": 5.07,
-                "yAxis": [
-                    "最大内存",
-                    "平均内存"
-                ],
-                "yAxisRight": [],
-                "yPos": 8.465909,
-                "zIndex": 0
-            },
-            "action": {
+            "视频名称": {
                 "type": "disabled"
-            }
-        },
-        {
-            "title": "log-simple-transcode1584435902122",
-            "type": "column",
-            "search": {
-                "end": "now",
-                "logstore": "access-logs",
-                "query": "functionName: transcode and operation:InvokeFunction |   SELECT  COUNT(*) AS \"视频数\"\n        ,concat(\n            CAST(10* (tenSeconds-1) AS VARCHAR)\n            ,'s-'\n            ,CAST(10* tenSeconds AS VARCHAR)\n            ,'s'\n        ) AS SECONDS\nFROM    (\n            SELECT  ceiling(durationMs/10000) AS tenSeconds\n            FROM    access-logs WHERE durationMs IS NOT NULL\n        )\nGROUP BY SECONDS,tenSeconds\nORDER BY tenSeconds",
-                "start": "-86400s",
-                "tokenQuery": "functionName: transcode and operation:InvokeFunction |   SELECT  COUNT(*) AS \"视频数\"\n        ,concat(\n            CAST(${执行时间统计单位(s)}* (tenSeconds-1) AS VARCHAR)\n            ,'s-'\n            ,CAST(${执行时间统计单位(s)}* tenSeconds AS VARCHAR)\n            ,'s'\n        ) AS SECONDS\nFROM    (\n            SELECT  ceiling(durationMs/${执行时间统计单位(s)}000) AS tenSeconds\n            FROM    access-logs WHERE durationMs IS NOT NULL\n        )\nGROUP BY SECONDS\nORDER BY SECONDS",
-                "tokens": [
-                    {
-                        "end": 97,
-                        "key": "执行时间统计单位(s)",
-                        "mode": "global",
-                        "start": 95,
-                        "value": "10"
-                    }
-                ],
-                "topic": ""
             },
-            "display": {
-                "closeDefault": false,
-                "closeSearch": false,
-                "closeSort": false,
-                "displayName": "执行时间分布情况(个)",
-                "formatType": "number",
-                "height": 3.5227273,
-                "highlight": false,
-                "legendPosition": "right",
-                "margin": [
-                    "auto",
-                    100,
-                    60,
-                    "auto"
-                ],
-                "pageSize": 20,
-                "showBackground": true,
-                "showBorder": true,
-                "showTitle": true,
-                "showZebra": false,
-                "sparkline": false,
-                "stacking": false,
-                "transpose": false,
-                "width": 4.78,
-                "xAxis": [
-                    "SECONDS"
-                ],
-                "xPos": 0.25,
-                "yAxis": [
-                    "视频数"
-                ],
-                "yPos": 17.545454,
-                "zIndex": 0
-            },
-            "action": {
-                "SECONDS": {},
-                "视频数": {}
-            }
-        },
-        {
-            "title": "log-simple-transcode1584504562263",
-            "type": "column",
-            "search": {
-                "end": "now",
-                "logstore": "access-logs",
-                "query": "functionName: transcode|SELECT  concat(CAST(size*5 AS VARCHAR),'M内') AS \"video-size\"\n        ,COUNT(*) AS \"视频数\"\nFROM    (\n            SELECT  ceiling(CAST( json_extract_scalar(message, '$.size') AS DOUBLE )/5 ) AS size\n            FROM    FUNCTION-logs\n            WHERE   json_extract_scalar(message, '$.size') IS NOT NULL\n        ) \nGROUP BY size\nORDER BY size",
-                "start": "-86400s",
-                "tokenQuery": "functionName: transcode|SELECT  concat(CAST(size*${视频大小统计单位(MB)} AS VARCHAR),'M内') AS \"video-size\"\n        ,COUNT(*) AS \"视频数\"\nFROM    (\n            SELECT  ceiling(CAST( json_extract_scalar(message, '$.size') AS DOUBLE )/${视频大小统计单位(MB)} ) AS size\n            FROM    FUNCTION-logs\n            WHERE   json_extract_scalar(message, '$.size') IS NOT NULL\n        ) \nGROUP BY size\nORDER BY size",
-                "tokens": [
-                    {
-                        "end": 50,
-                        "key": "视频大小统计单位(MB)",
-                        "mode": "global",
-                        "start": 49,
-                        "value": "5"
-                    }
-                ],
-                "topic": ""
-            },
-            "display": {
-                "displayName": "视频大小分布(个)",
-                "formatType": "number",
-                "height": 3.5227273,
-                "legendPosition": "right",
-                "margin": [
-                    "auto",
-                    100,
-                    60,
-                    "auto"
-                ],
-                "showBackground": true,
-                "showBorder": true,
-                "showTitle": true,
-                "stacking": false,
-                "width": 4.78,
-                "xAxis": [
-                    "video-size"
-                ],
-                "xPos": 5.07,
-                "yAxis": [
-                    "视频数"
-                ],
-                "yPos": 17.545454,
-                "zIndex": 0
-            },
-            "action": {
+            "转码状态": {},
+            "输出文件": {
                 "type": "disabled"
-            }
-        },
-        {
-            "title": "log-simple-transcode1584504773098",
-            "type": "column",
-            "search": {
-                "end": "now",
-                "logstore": "access-logs",
-                "query": "functionName: transcode|SELECT  video_format AS \"video_format\"\n        ,COUNT(*) AS \"视频数\"\nFROM    (\n            SELECT  ( json_extract_scalar(message, '$.video_format')) AS \"video_format\"\n            FROM    FUNCTION-logs\n            WHERE   json_extract_scalar(message, '$.video_format') IS NOT NULL\n        ) \nGROUP BY video_format",
-                "start": "-86400s",
-                "tokenQuery": "functionName: transcode|SELECT  video_format AS \"video_format\"\n        ,COUNT(*) AS COUNT\nFROM    (\n            SELECT  ( json_extract_scalar(message, '$.video_format')) AS \"video_format\"\n            FROM    FUNCTION-logs\n            WHERE   json_extract_scalar(message, '$.video_format') IS NOT NULL\n        ) \nGROUP BY video_format",
-                "tokens": [],
-                "topic": ""
             },
-            "display": {
-                "displayName": "视频格式分布(个)",
-                "formatType": "number",
-                "height": 3.5227273,
-                "legendPosition": "right",
-                "margin": [
-                    "auto",
-                    100,
-                    "auto",
-                    "auto"
-                ],
-                "showBackground": true,
-                "showBorder": true,
-                "showTitle": true,
-                "stacking": false,
-                "width": 4.78,
-                "xAxis": [
-                    "video_format"
-                ],
-                "xPos": 5.07,
-                "yAxis": [
-                    "视频数"
-                ],
-                "yPos": 12.102273,
-                "zIndex": 0
-            },
-            "action": {
-                "logStoreFilter": "",
-                "logStoreName": "access-logs",
-                "type": "disabled"
-            }
-        },
-        {
-            "title": "log-simple-transcode1584513575174",
-            "type": "line",
-            "search": {
-                "end": "now",
-                "logstore": "access-logs",
-                "query": "functionName: transcode and operation:InvokeFunction   | select \n\tdate_format(from_unixtime(__time__ - __time__% 600), '%m-%d %H:%i') as t,\n\tmax(concurrentReqLimit) as \"并发度限制\",\n\tmax(concurrentCount)  as \"实际并发度\" from access-logs\nGROUP by t order by t limit 1440",
-                "start": "-86400s",
-                "tokenQuery": "functionName: transcode and operation:InvokeFunction   | select \n\tdate_format(from_unixtime(__time__ - __time__% ${时间聚合粒度(s)}), '%m-%d %H:%i') as t,\n\tmax(concurrentReqLimit) as \"并发度限制\",\n\tmax(concurrentCount)  as \"实际并发度\" from access-logs\nGROUP by t order by t limit 1440",
-                "tokens": [
-                    {
-                        "end": 116,
-                        "key": "时间聚合粒度(s)",
-                        "mode": "global",
-                        "start": 113,
-                        "value": "600"
-                    }
-                ],
-                "topic": ""
-            },
-            "display": {
-                "areaLower": "",
-                "areaUpper": "",
-                "displayName": "账号级别并发度",
-                "formatType": "number",
-                "formatTypeRight": "number",
-                "height": 3.5227273,
-                "inputVal": "",
-                "inputValRight": "",
-                "intervalArray": [
-                    ""
-                ],
-                "legendPosition": "right",
-                "lineShape": "smooth",
-                "margin": [
-                    "auto",
-                    100,
-                    "auto",
-                    "auto"
-                ],
-                "pAxis": "",
-                "pointSize": true,
-                "showBackground": true,
-                "showBorder": true,
-                "showTitle": true,
-                "timing": {},
-                "width": 4.78,
-                "xAxis": [
-                    "t"
-                ],
-                "xPos": 0.25,
-                "yAxis": [
-                    "并发度限制",
-                    "实际并发度"
-                ],
-                "yAxisRight": [],
-                "yPos": 12.102273,
-                "zIndex": 0
-            },
-            "action": {
-                "type": "disabled"
-            }
-        },
-        {
-            "title": "log-simple-transcode1584513840575",
-            "type": "droplist",
-            "search": {
-                "end": "now",
-                "isInheritFilter": false,
-                "logstore": "",
-                "query": "",
-                "start": "-86400s",
-                "topic": ""
-            },
-            "display": {
-                "bindQuery": false,
-                "displayName": "时间聚合粒度",
-                "filterData": [
-                    {
-                        "key": "时间聚合粒度(s)",
-                        "list": [
-                            "60",
-                            "600",
-                            "3600"
-                        ],
-                        "type": "token"
-                    }
-                ],
-                "height": 1.25,
-                "showBackground": false,
-                "showBorder": false,
-                "showTitle": false,
-                "width": 4.7,
-                "xPos": 0.25,
-                "yPos": 3.3522727,
-                "zIndex": 13
-            },
-            "action": {}
-        },
-        {
-            "title": "log-simple-transcode1584513934444",
-            "type": "markdown",
-            "search": {
-                "end": "now",
-                "logstore": "",
-                "query": "",
-                "start": "-86400s",
-                "topic": ""
-            },
-            "display": {
-                "bindQuery": false,
-                "displayName": "问号",
-                "height": 1.1931819,
-                "markdownStr": "<font color=grey font size=1> <strong>默认聚合粒度为十分钟<\/strong><br>\n60 为按分钟粒度的聚合，每分钟数据聚合为一个点<br>\n600 为按十分钟粒度聚合，3600 为按小时粒度聚合<br>\n\n\n<\/font>",
-                "queryTimeType": 2,
-                "showBackground": false,
-                "showBorder": false,
-                "showTitle": false,
-                "width": 4.475,
-                "xPos": 5.37,
-                "yPos": 3.3522727,
-                "zIndex": 14
-            },
-            "action": {}
-        },
-        {
-            "title": "log-simple-transcode1584514689434",
-            "type": "svg",
-            "search": {
-                "end": "now",
-                "logstore": "",
-                "query": "",
-                "start": "-86400s",
-                "topic": ""
-            },
-            "display": {
-                "displayName": "log-simple-transcode1584514689434",
-                "height": 0.4659091,
-                "showBackground": true,
-                "showBorder": true,
-                "showTitle": true,
-                "svg": "data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/PjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cudzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+PHN2ZyB0PSIxNTQ3MDM0NzM3MjM5IiBjbGFzcz0iaWNvbiIgc3R5bGU9IiIgdmlld0JveD0iMCAwIDEwMjQgMTAyNCIgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHAtaWQ9IjM0NzgiIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+PGRlZnM+PHN0eWxlIHR5cGU9InRleHQvY3NzIj48L3N0eWxlPjwvZGVmcz48cGF0aCBkPSJNNTEyIDg4NC4zNjM2MzZjLTUwLjA1OTYzNiAwLTk4LjcyMjkwOS05Ljg5MDkwOS0xNDQuNjQtMjkuMzkzNDU0QTM3Mi45MjIxODIgMzcyLjkyMjE4MiAwIDAgMSAyNDkuMDE4MTgyIDc3NC45ODE4MThhMzcyLjkyMjE4MiAzNzIuOTIyMTgyIDAgMCAxLTc5Ljk2NTA5MS0xMTguMzY1MDkxQTM2Ny44NzIgMzY3Ljg3MiAwIDAgMSAxMzkuNjM2MzY0IDUxMmMwLTUwLjA1OTYzNiA5Ljg5MDkwOS05OC43MjI5MDkgMjkuMzkzNDU0LTE0NC42NGEzNzIuOTQ1NDU1IDM3Mi45NDU0NTUgMCAwIDEgNzkuOTY1MDkxLTExOC4zNjUwOTEgMzcyLjk0NTQ1NSAzNzIuOTQ1NDU1IDAgMCAxIDExOC4zNjUwOTEtNzkuOTY1MDkxQTM2Ny44NzIgMzY3Ljg3MiAwIDAgMSA1MTIgMTM5LjYzNjM2NGM1MC4wNTk2MzYgMCA5OC43MjI5MDkgOS44OTA5MDkgMTQ0LjY0IDI5LjM5MzQ1NGEzNzIuOTQ1NDU1IDM3Mi45NDU0NTUgMCAwIDEgMTE4LjM2NTA5MSA3OS45NjUwOTEgMzcyLjk0NTQ1NSAzNzIuOTQ1NDU1IDAgMCAxIDc5Ljk2NTA5MSAxMTguMzY1MDkxQTM2Ny44NzIgMzY3Ljg3MiAwIDAgMSA4ODQuMzYzNjM2IDUxMmMwIDUwLjA1OTYzNi05Ljg5MDkwOSA5OC43MjI5MDktMjkuMzkzNDU0IDE0NC42NEEzNzIuODk4OTA5IDM3Mi44OTg5MDkgMCAwIDEgNzc0Ljk4MTgxOCA3NzQuOTgxODE4YTM3Mi44OTg5MDkgMzcyLjg5ODkwOSAwIDAgMS0xMTguMzY1MDkxIDc5Ljk2NTA5MUEzNjcuODcyIDM2Ny44NzIgMCAwIDEgNTEyIDg4NC4zNjM2MzZ6IG0wLTY5OC4xODE4MThjLTQzLjc3NiAwLTg2LjM0MTgxOCA4LjYzNDE4Mi0xMjYuNDY0IDI1LjY5MzA5MWEzMjYuNTE2MzY0IDMyNi41MTYzNjQgMCAwIDAtMTAzLjYzMzQ1NSA3MC4wNTA5MDkgMzI2LjUzOTYzNiAzMjYuNTM5NjM2IDAgMCAwLTcwLjAyNzYzNiAxMDMuNjEwMTgyQTMyMS42MjkwOTEgMzIxLjYyOTA5MSAwIDAgMCAxODYuMTgxODE4IDUxMmMwIDQzLjc3NiA4LjYzNDE4MiA4Ni4zNDE4MTggMjUuNjkzMDkxIDEyNi40NjRhMzI2LjUxNjM2NCAzMjYuNTE2MzY0IDAgMCAwIDcwLjA1MDkwOSAxMDMuNjMzNDU1IDMyNi41MTYzNjQgMzI2LjUxNjM2NCAwIDAgMCAxMDMuNjEwMTgyIDcwLjAyNzYzNkEzMjEuNjI5MDkxIDMyMS42MjkwOTEgMCAwIDAgNTEyIDgzNy44MTgxODJjNDMuNzc2IDAgODYuMzQxODE4LTguNjM0MTgyIDEyNi40NjQtMjUuNjkzMDkxYTMyNi41MTYzNjQgMzI2LjUxNjM2NCAwIDAgMCAxMDMuNjMzNDU1LTcwLjA1MDkwOSAzMjYuNTE2MzY0IDMyNi41MTYzNjQgMCAwIDAgNzAuMDI3NjM2LTEwMy42MTAxODJBMzIxLjYyOTA5MSAzMjEuNjI5MDkxIDAgMCAwIDgzNy44MTgxODIgNTEyYzAtNDMuNzc2LTguNjM0MTgyLTg2LjM0MTgxOC0yNS42OTMwOTEtMTI2LjQ2NGEzMjYuNTE2MzY0IDMyNi41MTYzNjQgMCAwIDAtNzAuMDUwOTA5LTEwMy42MzM0NTUgMzI2LjUxNjM2NCAzMjYuNTE2MzY0IDAgMCAwLTEwMy42MTAxODItNzAuMDI3NjM2QTMyMS42NTIzNjQgMzIxLjY1MjM2NCAwIDAgMCA1MTIgMTg2LjE4MTgxOHogbS0xLjkwODM2NCA0MzUuMTMwMTgyYTE3LjkyIDE3LjkyIDAgMCAxLTE3Ljg3MzQ1NC0xNi42ODY1NDVjLTIuODYyNTQ1LTQxLjg5MDkwOSA2Ljg2NTQ1NS03MC4yODM2MzYgMTUuNTQ2MTgyLTg2LjcxNDE4MiA3LjY4LTE0LjU5MiAyMi45MjM2MzYtMjguMTgzMjczIDMwLjI1NDU0NS0zNC43MjI5MDlsMS44NjE4MTgtMS42NzU2MzdjMzcuOTU3ODE4LTM1LjA5NTI3MyAzNy40OTIzNjQtNTcuMTU3ODE4IDM3LjM5OTI3My01OC43ODY5MDlhMTYuMzg0IDE2LjM4NCAwIDAgMS0wLjA5MzA5MS0wLjY1MTYzNmMtMi44ODU4MTgtMjEuOTkyNzI3LTEyLjgtMzYuNjMxMjczLTMwLjI3NzgxOC00NC43MzAxODItOS42ODE0NTUtNC40OTE2MzYtMjEuMTc4MTgyLTYuNzcyMzY0LTM0LjE0MTA5MS02LjgxODkwOWExNDUuNTI0MzY0IDE0NS41MjQzNjQgMCAwIDEtMy41Mzc0NTUtMC4wMjMyNzNjLTI3LjI3NTYzNiAwLjA0NjU0NS00NS43Nzc0NTUgMTEuNjEzMDkxLTU2LjU3NiAzNS4zNzQ1NDZhMTA2LjU2NTgxOCAxMDYuNTY1ODE4IDAgMCAwLTguODIwMzYzIDM4LjM1MzQ1NCAxNy45MiAxNy45MiAwIDEgMS0zNS44NCAwYzAtMS4wOTM4MTggMC4xNjI5MDktMjcuMDY2MTgyIDEyLjAzMi01My4yMDE0NTQgNy4zMzA5MDktMTYuMTA0NzI3IDE3LjU3MDkwOS0yOS4wOTA5MDkgMzAuNDQwNzI3LTM4LjUxNjM2NCAxNi4wODE0NTUtMTEuNzk5MjczIDM1Ljg0LTE3LjgwMzYzNiA1OC43NDAzNjQtMTcuODUwMTgybDMuMDI1NDU0IDAuMDIzMjczaDAuNjI4MzY0YzE4LjE3NiAwLjA2OTgxOCAzNC42OTk2MzYgMy40OTA5MDkgNDkuMTA1NDU0IDEwLjE0NjkwOSAxOS45NjggOS4yNjI1NDUgNDQuOTE2MzY0IDI5LjI3NzA5MSA1MC42ODggNzIuMTQ1NDU1IDAuNjc0OTA5IDMuOTA5ODE4IDEuNDY2MTgyIDE0LjEwMzI3My0zLjc3MDE4MSAyOS4wNjc2MzYtNy4wMjgzNjQgMjAuMDg0MzY0LTIyLjA2MjU0NSA0MC44NjY5MDktNDQuNjgzNjM3IDYxLjc4OTA5MWEyMjEuMzIzNjM2IDIyMS4zMjM2MzYgMCAwIDEtMi4zMjcyNzIgMi4wOTQ1NDVjLTQuODY0IDQuMzI4NzI3LTE3LjczMzgxOCAxNS44MjU0NTUtMjIuNDExNjM3IDI0LjY5MjM2NC02LjUxNjM2NCAxMi4zMzQ1NDUtMTMuNzc3NDU1IDM0LjA0OC0xMS40OTY3MjcgNjcuNTM3NDU0YTE3LjkyIDE3LjkyIDAgMCAxLTE3Ljg3MzQ1NSAxOS4xNTM0NTV6IG02Ny4zNTEyNzMtMTk3LjgxODE4MnYwLjAyMzI3M3ogbTAgMHYwek01MzQuODA3MjczIDY3NS4zNzQ1NDV2NS43NDgzNjRhMjEuNjY2OTA5IDIxLjY2NjkwOSAwIDEgMS00My4zNTcwOTEgMHYtNS43NDgzNjRhMjEuNjY2OTA5IDIxLjY2NjkwOSAwIDEgMSA0My4zNTcwOTEgMHoiIGZpbGw9IiMyMUEzREQiIHAtaWQ9IjM0NzkiPjwvcGF0aD48L3N2Zz4=",
-                "width": 0.32794118,
-                "xPos": 5.1463237,
-                "yPos": 3.3522727,
-                "zIndex": 15
-            },
-            "action": {}
-        },
-        {
-            "title": "log-simple-transcode1584518068886",
-            "type": "droplist",
-            "search": {
-                "end": "now",
-                "isInheritFilter": false,
-                "logstore": "",
-                "query": "",
-                "start": "-86400s",
-                "topic": ""
-            },
-            "display": {
-                "bindQuery": false,
-                "displayName": "执行时间统计单位",
-                "filterData": [
-                    {
-                        "key": "执行时间统计单位(s)",
-                        "list": [
-                            "10",
-                            "60"
-                        ],
-                        "type": "token"
-                    }
-                ],
-                "height": 1.25,
-                "showBackground": false,
-                "showBorder": false,
-                "showTitle": false,
-                "width": 4.7,
-                "xPos": 0.25,
-                "yPos": 15.738636,
-                "zIndex": 15
-            },
-            "action": {}
-        },
-        {
-            "title": "log-simple-transcode1584518490240",
-            "type": "droplist",
-            "search": {
-                "end": "now",
-                "isInheritFilter": false,
-                "logstore": "",
-                "query": "",
-                "start": "-86400s",
-                "topic": ""
-            },
-            "display": {
-                "bindQuery": false,
-                "displayName": "视频大小统计单位",
-                "filterData": [
-                    {
-                        "key": "视频大小统计单位(MB)",
-                        "list": [
-                            "1",
-                            "5",
-                            "10",
-                            "100",
-                            "1000"
-                        ],
-                        "type": "token"
-                    }
-                ],
-                "height": 1.25,
-                "showBackground": false,
-                "showBorder": false,
-                "showTitle": false,
-                "width": 4.71,
-                "xPos": 5.15,
-                "yPos": 15.738636,
-                "zIndex": 16
-            },
-            "action": {}
-        },
-        {
-            "title": "log-simple-transcode1584518557408",
-            "type": "markdown",
-            "search": {
-                "end": "now",
-                "logstore": "",
-                "query": "",
-                "start": "-86400s",
-                "topic": ""
-            },
-            "display": {
-                "bindQuery": false,
-                "displayName": "Markdown",
-                "height": 0.6931818,
-                "markdownStr": "<font color=grey font size=1><strong>默认展示以 10 秒为粒度的执行时间分布情况<\/strong><br>您可以选择 60 查看分钟粒度执行时间分布情况<br>\n\n<\/font>",
-                "queryTimeType": 2,
-                "showBackground": false,
-                "showBorder": false,
-                "showTitle": false,
-                "width": 3.7691176,
-                "xPos": 1.182353,
-                "yPos": 16.520952,
-                "zIndex": 17
-            },
-            "action": {}
-        },
-        {
-            "title": "log-simple-transcode1584518576125",
-            "type": "svg",
-            "search": {
-                "end": "now",
-                "logstore": "",
-                "query": "",
-                "start": "-86400s",
-                "topic": ""
-            },
-            "display": {
-                "displayName": "log-simple-transcode1584514689434",
-                "height": 0.4659091,
-                "showBackground": true,
-                "showBorder": true,
-                "showTitle": true,
-                "svg": "data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/PjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cudzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+PHN2ZyB0PSIxNTQ3MDM0NzM3MjM5IiBjbGFzcz0iaWNvbiIgc3R5bGU9IiIgdmlld0JveD0iMCAwIDEwMjQgMTAyNCIgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHAtaWQ9IjM0NzgiIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+PGRlZnM+PHN0eWxlIHR5cGU9InRleHQvY3NzIj48L3N0eWxlPjwvZGVmcz48cGF0aCBkPSJNNTEyIDg4NC4zNjM2MzZjLTUwLjA1OTYzNiAwLTk4LjcyMjkwOS05Ljg5MDkwOS0xNDQuNjQtMjkuMzkzNDU0QTM3Mi45MjIxODIgMzcyLjkyMjE4MiAwIDAgMSAyNDkuMDE4MTgyIDc3NC45ODE4MThhMzcyLjkyMjE4MiAzNzIuOTIyMTgyIDAgMCAxLTc5Ljk2NTA5MS0xMTguMzY1MDkxQTM2Ny44NzIgMzY3Ljg3MiAwIDAgMSAxMzkuNjM2MzY0IDUxMmMwLTUwLjA1OTYzNiA5Ljg5MDkwOS05OC43MjI5MDkgMjkuMzkzNDU0LTE0NC42NGEzNzIuOTQ1NDU1IDM3Mi45NDU0NTUgMCAwIDEgNzkuOTY1MDkxLTExOC4zNjUwOTEgMzcyLjk0NTQ1NSAzNzIuOTQ1NDU1IDAgMCAxIDExOC4zNjUwOTEtNzkuOTY1MDkxQTM2Ny44NzIgMzY3Ljg3MiAwIDAgMSA1MTIgMTM5LjYzNjM2NGM1MC4wNTk2MzYgMCA5OC43MjI5MDkgOS44OTA5MDkgMTQ0LjY0IDI5LjM5MzQ1NGEzNzIuOTQ1NDU1IDM3Mi45NDU0NTUgMCAwIDEgMTE4LjM2NTA5MSA3OS45NjUwOTEgMzcyLjk0NTQ1NSAzNzIuOTQ1NDU1IDAgMCAxIDc5Ljk2NTA5MSAxMTguMzY1MDkxQTM2Ny44NzIgMzY3Ljg3MiAwIDAgMSA4ODQuMzYzNjM2IDUxMmMwIDUwLjA1OTYzNi05Ljg5MDkwOSA5OC43MjI5MDktMjkuMzkzNDU0IDE0NC42NEEzNzIuODk4OTA5IDM3Mi44OTg5MDkgMCAwIDEgNzc0Ljk4MTgxOCA3NzQuOTgxODE4YTM3Mi44OTg5MDkgMzcyLjg5ODkwOSAwIDAgMS0xMTguMzY1MDkxIDc5Ljk2NTA5MUEzNjcuODcyIDM2Ny44NzIgMCAwIDEgNTEyIDg4NC4zNjM2MzZ6IG0wLTY5OC4xODE4MThjLTQzLjc3NiAwLTg2LjM0MTgxOCA4LjYzNDE4Mi0xMjYuNDY0IDI1LjY5MzA5MWEzMjYuNTE2MzY0IDMyNi41MTYzNjQgMCAwIDAtMTAzLjYzMzQ1NSA3MC4wNTA5MDkgMzI2LjUzOTYzNiAzMjYuNTM5NjM2IDAgMCAwLTcwLjAyNzYzNiAxMDMuNjEwMTgyQTMyMS42MjkwOTEgMzIxLjYyOTA5MSAwIDAgMCAxODYuMTgxODE4IDUxMmMwIDQzLjc3NiA4LjYzNDE4MiA4Ni4zNDE4MTggMjUuNjkzMDkxIDEyNi40NjRhMzI2LjUxNjM2NCAzMjYuNTE2MzY0IDAgMCAwIDcwLjA1MDkwOSAxMDMuNjMzNDU1IDMyNi41MTYzNjQgMzI2LjUxNjM2NCAwIDAgMCAxMDMuNjEwMTgyIDcwLjAyNzYzNkEzMjEuNjI5MDkxIDMyMS42MjkwOTEgMCAwIDAgNTEyIDgzNy44MTgxODJjNDMuNzc2IDAgODYuMzQxODE4LTguNjM0MTgyIDEyNi40NjQtMjUuNjkzMDkxYTMyNi41MTYzNjQgMzI2LjUxNjM2NCAwIDAgMCAxMDMuNjMzNDU1LTcwLjA1MDkwOSAzMjYuNTE2MzY0IDMyNi41MTYzNjQgMCAwIDAgNzAuMDI3NjM2LTEwMy42MTAxODJBMzIxLjYyOTA5MSAzMjEuNjI5MDkxIDAgMCAwIDgzNy44MTgxODIgNTEyYzAtNDMuNzc2LTguNjM0MTgyLTg2LjM0MTgxOC0yNS42OTMwOTEtMTI2LjQ2NGEzMjYuNTE2MzY0IDMyNi41MTYzNjQgMCAwIDAtNzAuMDUwOTA5LTEwMy42MzM0NTUgMzI2LjUxNjM2NCAzMjYuNTE2MzY0IDAgMCAwLTEwMy42MTAxODItNzAuMDI3NjM2QTMyMS42NTIzNjQgMzIxLjY1MjM2NCAwIDAgMCA1MTIgMTg2LjE4MTgxOHogbS0xLjkwODM2NCA0MzUuMTMwMTgyYTE3LjkyIDE3LjkyIDAgMCAxLTE3Ljg3MzQ1NC0xNi42ODY1NDVjLTIuODYyNTQ1LTQxLjg5MDkwOSA2Ljg2NTQ1NS03MC4yODM2MzYgMTUuNTQ2MTgyLTg2LjcxNDE4MiA3LjY4LTE0LjU5MiAyMi45MjM2MzYtMjguMTgzMjczIDMwLjI1NDU0NS0zNC43MjI5MDlsMS44NjE4MTgtMS42NzU2MzdjMzcuOTU3ODE4LTM1LjA5NTI3MyAzNy40OTIzNjQtNTcuMTU3ODE4IDM3LjM5OTI3My01OC43ODY5MDlhMTYuMzg0IDE2LjM4NCAwIDAgMS0wLjA5MzA5MS0wLjY1MTYzNmMtMi44ODU4MTgtMjEuOTkyNzI3LTEyLjgtMzYuNjMxMjczLTMwLjI3NzgxOC00NC43MzAxODItOS42ODE0NTUtNC40OTE2MzYtMjEuMTc4MTgyLTYuNzcyMzY0LTM0LjE0MTA5MS02LjgxODkwOWExNDUuNTI0MzY0IDE0NS41MjQzNjQgMCAwIDEtMy41Mzc0NTUtMC4wMjMyNzNjLTI3LjI3NTYzNiAwLjA0NjU0NS00NS43Nzc0NTUgMTEuNjEzMDkxLTU2LjU3NiAzNS4zNzQ1NDZhMTA2LjU2NTgxOCAxMDYuNTY1ODE4IDAgMCAwLTguODIwMzYzIDM4LjM1MzQ1NCAxNy45MiAxNy45MiAwIDEgMS0zNS44NCAwYzAtMS4wOTM4MTggMC4xNjI5MDktMjcuMDY2MTgyIDEyLjAzMi01My4yMDE0NTQgNy4zMzA5MDktMTYuMTA0NzI3IDE3LjU3MDkwOS0yOS4wOTA5MDkgMzAuNDQwNzI3LTM4LjUxNjM2NCAxNi4wODE0NTUtMTEuNzk5MjczIDM1Ljg0LTE3LjgwMzYzNiA1OC43NDAzNjQtMTcuODUwMTgybDMuMDI1NDU0IDAuMDIzMjczaDAuNjI4MzY0YzE4LjE3NiAwLjA2OTgxOCAzNC42OTk2MzYgMy40OTA5MDkgNDkuMTA1NDU0IDEwLjE0NjkwOSAxOS45NjggOS4yNjI1NDUgNDQuOTE2MzY0IDI5LjI3NzA5MSA1MC42ODggNzIuMTQ1NDU1IDAuNjc0OTA5IDMuOTA5ODE4IDEuNDY2MTgyIDE0LjEwMzI3My0zLjc3MDE4MSAyOS4wNjc2MzYtNy4wMjgzNjQgMjAuMDg0MzY0LTIyLjA2MjU0NSA0MC44NjY5MDktNDQuNjgzNjM3IDYxLjc4OTA5MWEyMjEuMzIzNjM2IDIyMS4zMjM2MzYgMCAwIDEtMi4zMjcyNzIgMi4wOTQ1NDVjLTQuODY0IDQuMzI4NzI3LTE3LjczMzgxOCAxNS44MjU0NTUtMjIuNDExNjM3IDI0LjY5MjM2NC02LjUxNjM2NCAxMi4zMzQ1NDUtMTMuNzc3NDU1IDM0LjA0OC0xMS40OTY3MjcgNjcuNTM3NDU0YTE3LjkyIDE3LjkyIDAgMCAxLTE3Ljg3MzQ1NSAxOS4xNTM0NTV6IG02Ny4zNTEyNzMtMTk3LjgxODE4MnYwLjAyMzI3M3ogbTAgMHYwek01MzQuODA3MjczIDY3NS4zNzQ1NDV2NS43NDgzNjRhMjEuNjY2OTA5IDIxLjY2NjkwOSAwIDEgMS00My4zNTcwOTEgMHYtNS43NDgzNjRhMjEuNjY2OTA5IDIxLjY2NjkwOSAwIDEgMSA0My4zNTcwOTEgMHoiIGZpbGw9IiMyMUEzREQiIHAtaWQ9IjM0NzkiPjwvcGF0aD48L3N2Zz4=",
-                "width": 0.32,
-                "xPos": 6.002941,
-                "yPos": 16.511364,
-                "zIndex": 18
-            },
-            "action": {}
-        },
-        {
-            "title": "log-simple-transcode1584518590068",
-            "type": "svg",
-            "search": {
-                "end": "now",
-                "logstore": "",
-                "query": "",
-                "start": "-86400s",
-                "topic": ""
-            },
-            "display": {
-                "displayName": "log-simple-transcode1584514689434",
-                "height": 0.4659091,
-                "showBackground": true,
-                "showBorder": true,
-                "showTitle": true,
-                "svg": "data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/PjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cudzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+PHN2ZyB0PSIxNTQ3MDM0NzM3MjM5IiBjbGFzcz0iaWNvbiIgc3R5bGU9IiIgdmlld0JveD0iMCAwIDEwMjQgMTAyNCIgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHAtaWQ9IjM0NzgiIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+PGRlZnM+PHN0eWxlIHR5cGU9InRleHQvY3NzIj48L3N0eWxlPjwvZGVmcz48cGF0aCBkPSJNNTEyIDg4NC4zNjM2MzZjLTUwLjA1OTYzNiAwLTk4LjcyMjkwOS05Ljg5MDkwOS0xNDQuNjQtMjkuMzkzNDU0QTM3Mi45MjIxODIgMzcyLjkyMjE4MiAwIDAgMSAyNDkuMDE4MTgyIDc3NC45ODE4MThhMzcyLjkyMjE4MiAzNzIuOTIyMTgyIDAgMCAxLTc5Ljk2NTA5MS0xMTguMzY1MDkxQTM2Ny44NzIgMzY3Ljg3MiAwIDAgMSAxMzkuNjM2MzY0IDUxMmMwLTUwLjA1OTYzNiA5Ljg5MDkwOS05OC43MjI5MDkgMjkuMzkzNDU0LTE0NC42NGEzNzIuOTQ1NDU1IDM3Mi45NDU0NTUgMCAwIDEgNzkuOTY1MDkxLTExOC4zNjUwOTEgMzcyLjk0NTQ1NSAzNzIuOTQ1NDU1IDAgMCAxIDExOC4zNjUwOTEtNzkuOTY1MDkxQTM2Ny44NzIgMzY3Ljg3MiAwIDAgMSA1MTIgMTM5LjYzNjM2NGM1MC4wNTk2MzYgMCA5OC43MjI5MDkgOS44OTA5MDkgMTQ0LjY0IDI5LjM5MzQ1NGEzNzIuOTQ1NDU1IDM3Mi45NDU0NTUgMCAwIDEgMTE4LjM2NTA5MSA3OS45NjUwOTEgMzcyLjk0NTQ1NSAzNzIuOTQ1NDU1IDAgMCAxIDc5Ljk2NTA5MSAxMTguMzY1MDkxQTM2Ny44NzIgMzY3Ljg3MiAwIDAgMSA4ODQuMzYzNjM2IDUxMmMwIDUwLjA1OTYzNi05Ljg5MDkwOSA5OC43MjI5MDktMjkuMzkzNDU0IDE0NC42NEEzNzIuODk4OTA5IDM3Mi44OTg5MDkgMCAwIDEgNzc0Ljk4MTgxOCA3NzQuOTgxODE4YTM3Mi44OTg5MDkgMzcyLjg5ODkwOSAwIDAgMS0xMTguMzY1MDkxIDc5Ljk2NTA5MUEzNjcuODcyIDM2Ny44NzIgMCAwIDEgNTEyIDg4NC4zNjM2MzZ6IG0wLTY5OC4xODE4MThjLTQzLjc3NiAwLTg2LjM0MTgxOCA4LjYzNDE4Mi0xMjYuNDY0IDI1LjY5MzA5MWEzMjYuNTE2MzY0IDMyNi41MTYzNjQgMCAwIDAtMTAzLjYzMzQ1NSA3MC4wNTA5MDkgMzI2LjUzOTYzNiAzMjYuNTM5NjM2IDAgMCAwLTcwLjAyNzYzNiAxMDMuNjEwMTgyQTMyMS42MjkwOTEgMzIxLjYyOTA5MSAwIDAgMCAxODYuMTgxODE4IDUxMmMwIDQzLjc3NiA4LjYzNDE4MiA4Ni4zNDE4MTggMjUuNjkzMDkxIDEyNi40NjRhMzI2LjUxNjM2NCAzMjYuNTE2MzY0IDAgMCAwIDcwLjA1MDkwOSAxMDMuNjMzNDU1IDMyNi41MTYzNjQgMzI2LjUxNjM2NCAwIDAgMCAxMDMuNjEwMTgyIDcwLjAyNzYzNkEzMjEuNjI5MDkxIDMyMS42MjkwOTEgMCAwIDAgNTEyIDgzNy44MTgxODJjNDMuNzc2IDAgODYuMzQxODE4LTguNjM0MTgyIDEyNi40NjQtMjUuNjkzMDkxYTMyNi41MTYzNjQgMzI2LjUxNjM2NCAwIDAgMCAxMDMuNjMzNDU1LTcwLjA1MDkwOSAzMjYuNTE2MzY0IDMyNi41MTYzNjQgMCAwIDAgNzAuMDI3NjM2LTEwMy42MTAxODJBMzIxLjYyOTA5MSAzMjEuNjI5MDkxIDAgMCAwIDgzNy44MTgxODIgNTEyYzAtNDMuNzc2LTguNjM0MTgyLTg2LjM0MTgxOC0yNS42OTMwOTEtMTI2LjQ2NGEzMjYuNTE2MzY0IDMyNi41MTYzNjQgMCAwIDAtNzAuMDUwOTA5LTEwMy42MzM0NTUgMzI2LjUxNjM2NCAzMjYuNTE2MzY0IDAgMCAwLTEwMy42MTAxODItNzAuMDI3NjM2QTMyMS42NTIzNjQgMzIxLjY1MjM2NCAwIDAgMCA1MTIgMTg2LjE4MTgxOHogbS0xLjkwODM2NCA0MzUuMTMwMTgyYTE3LjkyIDE3LjkyIDAgMCAxLTE3Ljg3MzQ1NC0xNi42ODY1NDVjLTIuODYyNTQ1LTQxLjg5MDkwOSA2Ljg2NTQ1NS03MC4yODM2MzYgMTUuNTQ2MTgyLTg2LjcxNDE4MiA3LjY4LTE0LjU5MiAyMi45MjM2MzYtMjguMTgzMjczIDMwLjI1NDU0NS0zNC43MjI5MDlsMS44NjE4MTgtMS42NzU2MzdjMzcuOTU3ODE4LTM1LjA5NTI3MyAzNy40OTIzNjQtNTcuMTU3ODE4IDM3LjM5OTI3My01OC43ODY5MDlhMTYuMzg0IDE2LjM4NCAwIDAgMS0wLjA5MzA5MS0wLjY1MTYzNmMtMi44ODU4MTgtMjEuOTkyNzI3LTEyLjgtMzYuNjMxMjczLTMwLjI3NzgxOC00NC43MzAxODItOS42ODE0NTUtNC40OTE2MzYtMjEuMTc4MTgyLTYuNzcyMzY0LTM0LjE0MTA5MS02LjgxODkwOWExNDUuNTI0MzY0IDE0NS41MjQzNjQgMCAwIDEtMy41Mzc0NTUtMC4wMjMyNzNjLTI3LjI3NTYzNiAwLjA0NjU0NS00NS43Nzc0NTUgMTEuNjEzMDkxLTU2LjU3NiAzNS4zNzQ1NDZhMTA2LjU2NTgxOCAxMDYuNTY1ODE4IDAgMCAwLTguODIwMzYzIDM4LjM1MzQ1NCAxNy45MiAxNy45MiAwIDEgMS0zNS44NCAwYzAtMS4wOTM4MTggMC4xNjI5MDktMjcuMDY2MTgyIDEyLjAzMi01My4yMDE0NTQgNy4zMzA5MDktMTYuMTA0NzI3IDE3LjU3MDkwOS0yOS4wOTA5MDkgMzAuNDQwNzI3LTM4LjUxNjM2NCAxNi4wODE0NTUtMTEuNzk5MjczIDM1Ljg0LTE3LjgwMzYzNiA1OC43NDAzNjQtMTcuODUwMTgybDMuMDI1NDU0IDAuMDIzMjczaDAuNjI4MzY0YzE4LjE3NiAwLjA2OTgxOCAzNC42OTk2MzYgMy40OTA5MDkgNDkuMTA1NDU0IDEwLjE0NjkwOSAxOS45NjggOS4yNjI1NDUgNDQuOTE2MzY0IDI5LjI3NzA5MSA1MC42ODggNzIuMTQ1NDU1IDAuNjc0OTA5IDMuOTA5ODE4IDEuNDY2MTgyIDE0LjEwMzI3My0zLjc3MDE4MSAyOS4wNjc2MzYtNy4wMjgzNjQgMjAuMDg0MzY0LTIyLjA2MjU0NSA0MC44NjY5MDktNDQuNjgzNjM3IDYxLjc4OTA5MWEyMjEuMzIzNjM2IDIyMS4zMjM2MzYgMCAwIDEtMi4zMjcyNzIgMi4wOTQ1NDVjLTQuODY0IDQuMzI4NzI3LTE3LjczMzgxOCAxNS44MjU0NTUtMjIuNDExNjM3IDI0LjY5MjM2NC02LjUxNjM2NCAxMi4zMzQ1NDUtMTMuNzc3NDU1IDM0LjA0OC0xMS40OTY3MjcgNjcuNTM3NDU0YTE3LjkyIDE3LjkyIDAgMCAxLTE3Ljg3MzQ1NSAxOS4xNTM0NTV6IG02Ny4zNTEyNzMtMTk3LjgxODE4MnYwLjAyMzI3M3ogbTAgMHYwek01MzQuODA3MjczIDY3NS4zNzQ1NDV2NS43NDgzNjRhMjEuNjY2OTA5IDIxLjY2NjkwOSAwIDEgMS00My4zNTcwOTEgMHYtNS43NDgzNjRhMjEuNjY2OTA5IDIxLjY2NjkwOSAwIDEgMSA0My4zNTcwOTEgMHoiIGZpbGw9IiMyMUEzREQiIHAtaWQ9IjM0NzkiPjwvcGF0aD48L3N2Zz4=",
-                "width": 0.32,
-                "xPos": 0.9632352,
-                "yPos": 16.5,
-                "zIndex": 19
-            },
-            "action": {}
-        },
-        {
-            "title": "log-simple-transcode1584518837125",
-            "type": "markdown",
-            "search": {
-                "end": "now",
-                "logstore": "",
-                "query": "",
-                "start": "-86400s",
-                "topic": ""
-            },
-            "display": {
-                "bindQuery": false,
-                "displayName": "Markdown",
-                "height": 0.89772725,
-                "markdownStr": "<font color=grey font size=1><strong>默认展示以 5MB 为粒度的视频大小分布情况<\/strong><br>您可以选择查看以 1MB/10MB/100MB/1000MB 为粒度的视频大小分布情况<br>\n\n<\/font>",
-                "queryTimeType": 2,
-                "showBackground": false,
-                "showBorder": false,
-                "showTitle": false,
-                "width": 3.6367648,
-                "xPos": 6.207647,
-                "yPos": 16.511364,
-                "zIndex": 20
-            },
-            "action": {}
+            "输出文件位置": {}
         }
-    ]
+    }, {
+        "title": "log-simple-transcode1584430287003",
+        "type": "number",
+        "search": {
+            "end": "now",
+            "logstore": "access-logs",
+            "query": "functionName: transcode | select count(*) as \"总任务数（个）\" from access-logs",
+            "start": "-86400s",
+            "tokenQuery": "functionName: transcode | select count(*) as \"总任务数（个）\" from access-logs",
+            "tokens": [],
+            "topic": ""
+        },
+        "display": {
+            "bgColor": {
+                "a": 1,
+                "b": 255,
+                "g": 255,
+                "r": 255
+            },
+            "description": "",
+            "descriptionSize": 12,
+            "displayName": "总任务数（个）",
+            "fontColor": {
+                "a": 1,
+                "b": 74,
+                "g": 74,
+                "r": 74
+            },
+            "fontSize": 24,
+            "formatType": "number",
+            "height": 2.9545455,
+            "numberType": "number",
+            "showBackground": true,
+            "showBorder": true,
+            "showTitle": true,
+            "unit": "个",
+            "unitSize": 12,
+            "width": 3.1,
+            "xAxis": ["总任务数（个）"],
+            "xPos": 0.25,
+            "yPos": 0.17045455,
+            "zIndex": 0
+        },
+        "action": {
+            "type": "disabled"
+        }
+    }, {
+        "title": "log-simple-transcode1584430486970",
+        "type": "number",
+        "search": {
+            "end": "now",
+            "logstore": "access-logs",
+            "query": "functionName: transcode | SELECT COUNT(*) AS \"处理失败任务数（个）\" FROM access-logs where fcStatus>200 or functionErrors>0",
+            "start": "-86400s",
+            "tokenQuery": "functionName: transcode | SELECT COUNT(*) AS \"处理失败任务数（个）\" FROM access-logs where fcStatus>200",
+            "tokens": [],
+            "topic": ""
+        },
+        "display": {
+            "bgColor": {
+                "a": 1,
+                "b": 255,
+                "g": 255,
+                "r": 255
+            },
+            "description": "",
+            "descriptionSize": 12,
+            "displayName": "处理失败任务数（个）",
+            "fontColor": {
+                "a": 1,
+                "b": 27,
+                "g": 2,
+                "r": 208
+            },
+            "fontSize": 24,
+            "formatType": "number",
+            "height": 2.9545455,
+            "numberType": "number",
+            "showBackground": true,
+            "showBorder": true,
+            "showTitle": true,
+            "unit": "个",
+            "unitSize": 12,
+            "width": 3.1,
+            "xAxis": ["处理失败任务数（个）"],
+            "xPos": 3.5,
+            "yPos": 0.17045455,
+            "zIndex": 0
+        },
+        "action": {
+            "type": "disabled"
+        }
+    }, {
+        "title": "log-simple-transcode1584430950526",
+        "type": "number",
+        "search": {
+            "end": "now",
+            "logstore": "access-logs",
+            "query": "functionName: transcode | select round(cast((count_if(fcStatus>200)+count_if(functionErrors>0)) as double)/COUNT(*),10) as \"处理失败率\" from access-logs",
+            "start": "-86400s",
+            "tokenQuery": "functionName: transcode | select count_if(fcStatus>200)/COUNT(*) as \"处理失败率\" from access-logs",
+            "tokens": [],
+            "topic": ""
+        },
+        "display": {
+            "bgColor": {
+                "a": 1,
+                "b": 255,
+                "g": 255,
+                "r": 255
+            },
+            "description": "",
+            "descriptionSize": 12,
+            "displayName": "处理失败率",
+            "fontColor": {
+                "a": 1,
+                "b": 27,
+                "g": 2,
+                "r": 208
+            },
+            "fontSize": 24,
+            "formatType": "percent",
+            "height": 2.9545455,
+            "numberType": "number",
+            "showBackground": true,
+            "showBorder": true,
+            "showTitle": true,
+            "unit": "",
+            "unitSize": 14,
+            "width": 3.1,
+            "xAxis": ["处理失败率"],
+            "xPos": 6.75,
+            "yPos": 0.17045455,
+            "zIndex": 0
+        },
+        "action": {
+            "type": "disabled"
+        }
+    }, {
+        "title": "log-simple-transcode1584431475555",
+        "type": "line",
+        "search": {
+            "end": "now",
+            "logstore": "access-logs",
+            "query": "functionName: transcode and operation:InvokeFunction   \n| SELECT  date_format(from_unixtime(__time__ - __time__% 600), '%m-%d %H:%i') AS t\n,COUNT(*) AS \"总调用次数\"\nGROUP BY t\nORDER BY t\nLIMIT   1440",
+            "start": "-86400s",
+            "tokenQuery": "functionName: transcode and operation:InvokeFunction   \n| SELECT  date_format(from_unixtime(__time__ - __time__% ${时间聚合粒度(s)}), '%m-%d %H:%i') AS t\n,COUNT(*) AS \"总调用次数\"\nGROUP BY t\nORDER BY t\nLIMIT   1440",
+            "tokens": [{
+                "end": 116,
+                "key": "时间聚合粒度(s)",
+                "mode": "accurate",
+                "start": 113,
+                "value": "600"
+            }],
+            "topic": ""
+        },
+        "display": {
+            "areaLower": "",
+            "areaUpper": "",
+            "displayName": "TPS",
+            "formatType": "number",
+            "formatTypeRight": "number",
+            "height": 3.5227273,
+            "inputVal": "",
+            "inputValRight": "",
+            "intervalArray": [""],
+            "legendPosition": "right",
+            "lineShape": "smooth",
+            "margin": ["auto", 100, "auto", "auto"],
+            "pAxis": "",
+            "pointSize": true,
+            "showBackground": true,
+            "showBorder": true,
+            "showTitle": true,
+            "timing": {},
+            "width": 4.78,
+            "xAxis": ["t"],
+            "xPos": 0.25,
+            "yAxis": ["总调用次数"],
+            "yAxisRight": [],
+            "yPos": 4.818182,
+            "zIndex": 0
+        },
+        "action": {
+            "type": "disabled"
+        }
+    }, {
+        "title": "log-simple-transcode1584432140822",
+        "type": "line",
+        "search": {
+            "end": "now",
+            "logstore": "access-logs",
+            "query": "functionName: transcode and operation:InvokeFunction   \n| SELECT  date_format(from_unixtime(__time__ - __time__% 600), '%m-%d %H:%i') AS t\n        ,COUNT_if(functionErrors>0) AS \"函数错误\"\n        ,COUNT_if(fcStatus=429) + count_if(fcStatus=503) AS \"流控错误\"\n        ,COUNT_if(fcStatus=500) AS \"系统错误\"\nGROUP BY t\nORDER BY t\nLIMIT   1440",
+            "start": "-86400s",
+            "tokenQuery": "functionName: transcode and operation:InvokeFunction   \n| SELECT  date_format(from_unixtime(__time__ - __time__% ${时间聚合粒度(s)}), '%m-%d %H:%i') AS t\n        ,COUNT_if(functionErrors>0) AS \"函数错误\"\n        ,COUNT_if(fcStatus=429) + count_if(fcStatus=503) AS \"流控错误\"\n        ,COUNT_if(fcStatus=500) AS \"系统错误\"\nGROUP BY t\nORDER BY t\nLIMIT   1440",
+            "tokens": [{
+                "end": 116,
+                "key": "时间聚合粒度(s)",
+                "mode": "accurate",
+                "start": 113,
+                "value": "600"
+            }],
+            "topic": ""
+        },
+        "display": {
+            "areaLower": "",
+            "areaUpper": "",
+            "displayName": "执行错误（次）",
+            "formatType": "number",
+            "formatTypeRight": "number",
+            "height": 3.5227273,
+            "inputVal": "",
+            "inputValRight": "",
+            "intervalArray": [""],
+            "legendPosition": "right",
+            "lineShape": "smooth",
+            "margin": ["auto", 100, "auto", "auto"],
+            "pAxis": "",
+            "pointSize": true,
+            "showBackground": true,
+            "showBorder": true,
+            "showTitle": true,
+            "timing": {},
+            "width": 4.78,
+            "xAxis": ["t"],
+            "xPos": 5.07,
+            "yAxis": ["函数错误", "流控错误", "系统错误"],
+            "yAxisRight": [],
+            "yPos": 4.818182,
+            "zIndex": 0
+        },
+        "action": {
+            "type": "disabled"
+        }
+    }, {
+        "title": "log-simple-transcode1584432754720",
+        "type": "line",
+        "search": {
+            "end": "now",
+            "logstore": "access-logs",
+            "query": "functionName: transcode and operation:InvokeFunction   \n| SELECT  date_format(from_unixtime(__time__ - __time__% 600), '%m-%d %H:%i') AS t\n        ,max(durationMs)/1000 as \"最大执行时间\"\n        ,avg(durationMs)/1000 as \"平均执行时间\"\n        ,approx_percentile(durationMs,0.95)/1000 AS \"P95执行时间\" from access-logs\nGROUP BY t\nORDER BY t\nLIMIT   1440",
+            "start": "-86400s",
+            "tokenQuery": "functionName: transcode and operation:InvokeFunction   \n| SELECT  date_format(from_unixtime(__time__ - __time__% ${时间聚合粒度(s)}), '%m-%d %H:%i') AS t\n        ,max(durationMs)/1000 as \"最大执行时间\"\n        ,avg(durationMs)/1000 as \"平均执行时间\"\n        ,approx_percentile(durationMs,0.95)/1000 AS \"P95执行时间\" from access-logs\nGROUP BY t\nORDER BY t\nLIMIT   1440",
+            "tokens": [{
+                "end": 116,
+                "key": "时间聚合粒度(s)",
+                "mode": "accurate",
+                "start": 113,
+                "value": "600"
+            }],
+            "topic": ""
+        },
+        "display": {
+            "areaLower": "",
+            "areaUpper": "",
+            "displayName": "执行时间(s)",
+            "formatType": "number",
+            "formatTypeRight": "number",
+            "height": 3.5227273,
+            "inputVal": "",
+            "inputValRight": "",
+            "intervalArray": [""],
+            "legendPosition": "right",
+            "lineShape": "smooth",
+            "margin": ["auto", 100, "auto", "auto"],
+            "pAxis": "",
+            "pointSize": true,
+            "showBackground": true,
+            "showBorder": true,
+            "showTitle": true,
+            "timing": {},
+            "width": 4.78,
+            "xAxis": ["t"],
+            "xPos": 0.25,
+            "yAxis": ["最大执行时间", "P95执行时间", "平均执行时间"],
+            "yAxisRight": [],
+            "yPos": 8.465909,
+            "zIndex": 0
+        },
+        "action": {
+            "type": "disabled"
+        }
+    }, {
+        "title": "log-simple-transcode1584433923758",
+        "type": "line",
+        "search": {
+            "end": "now",
+            "logstore": "access-logs",
+            "query": "functionName: transcode and operation:InvokeFunction\n| SELECT  date_format(from_unixtime(__time__ - __time__% 600), '%m-%d %H:%i') AS t\n        ,max(maxMemoryUsage) as \"最大内存\"\n        ,avg(maxMemoryUsage) as \"平均内存\" from access-logs\nGROUP BY t\nORDER BY t\nLIMIT   1440",
+            "start": "-86400s",
+            "tokenQuery": "functionName: transcode and operation:InvokeFunction\n| SELECT  date_format(from_unixtime(__time__ - __time__% ${时间聚合粒度(s)}), '%m-%d %H:%i') AS t\n        ,max(maxMemoryUsage) as \"最大内存\"\n        ,avg(maxMemoryUsage) as \"平均内存\" from access-logs\nGROUP BY t\nORDER BY t\nLIMIT   1440",
+            "tokens": [{
+                "end": 113,
+                "key": "时间聚合粒度(s)",
+                "mode": "global",
+                "start": 110,
+                "value": "600"
+            }],
+            "topic": ""
+        },
+        "display": {
+            "areaLower": "",
+            "areaUpper": "",
+            "displayName": "内存使用情况(MB)",
+            "formatType": "number",
+            "formatTypeRight": "number",
+            "height": 3.5227273,
+            "inputVal": "",
+            "inputValRight": "",
+            "intervalArray": [""],
+            "legendPosition": "right",
+            "lineShape": "smooth",
+            "margin": ["auto", 100, "auto", "auto"],
+            "pAxis": "",
+            "pointSize": true,
+            "showBackground": true,
+            "showBorder": true,
+            "showTitle": true,
+            "timing": {},
+            "width": 4.78,
+            "xAxis": ["t"],
+            "xPos": 5.07,
+            "yAxis": ["最大内存", "平均内存"],
+            "yAxisRight": [],
+            "yPos": 8.465909,
+            "zIndex": 0
+        },
+        "action": {
+            "type": "disabled"
+        }
+    }, {
+        "title": "log-simple-transcode1584435902122",
+        "type": "column",
+        "search": {
+            "end": "now",
+            "logstore": "access-logs",
+            "query": "functionName: transcode and operation:InvokeFunction |   SELECT  COUNT(*) AS \"视频数\"\n        ,concat(\n            CAST(10* (tenSeconds-1) AS VARCHAR)\n            ,'s-'\n            ,CAST(10* tenSeconds AS VARCHAR)\n            ,'s'\n        ) AS SECONDS\nFROM    (\n            SELECT  ceiling(durationMs/10000) AS tenSeconds\n            FROM    access-logs WHERE durationMs IS NOT NULL\n        )\nGROUP BY SECONDS,tenSeconds\nORDER BY tenSeconds",
+            "start": "-86400s",
+            "tokenQuery": "functionName: transcode and operation:InvokeFunction |   SELECT  COUNT(*) AS \"视频数\"\n        ,concat(\n            CAST(${执行时间统计单位(s)}* (tenSeconds-1) AS VARCHAR)\n            ,'s-'\n            ,CAST(${执行时间统计单位(s)}* tenSeconds AS VARCHAR)\n            ,'s'\n        ) AS SECONDS\nFROM    (\n            SELECT  ceiling(durationMs/${执行时间统计单位(s)}000) AS tenSeconds\n            FROM    access-logs WHERE durationMs IS NOT NULL\n        )\nGROUP BY SECONDS\nORDER BY SECONDS",
+            "tokens": [{
+                "end": 97,
+                "key": "执行时间统计单位(s)",
+                "mode": "global",
+                "start": 95,
+                "value": "10"
+            }],
+            "topic": ""
+        },
+        "display": {
+            "closeDefault": false,
+            "closeSearch": false,
+            "closeSort": false,
+            "displayName": "执行时间分布情况(个)",
+            "formatType": "number",
+            "height": 3.5227273,
+            "highlight": false,
+            "legendPosition": "right",
+            "margin": ["auto", 100, 60, "auto"],
+            "pageSize": 20,
+            "showBackground": true,
+            "showBorder": true,
+            "showTitle": true,
+            "showZebra": false,
+            "sparkline": false,
+            "stacking": false,
+            "transpose": false,
+            "width": 4.78,
+            "xAxis": ["SECONDS"],
+            "xPos": 0.25,
+            "yAxis": ["视频数"],
+            "yPos": 17.545454,
+            "zIndex": 0
+        },
+        "action": {
+            "SECONDS": {},
+            "视频数": {}
+        }
+    }, {
+        "title": "log-simple-transcode1584504562263",
+        "type": "column",
+        "search": {
+            "end": "now",
+            "logstore": "access-logs",
+            "query": "functionName: transcode|SELECT  concat(CAST(size*5 AS VARCHAR),'M内') AS \"video-size\"\n        ,COUNT(*) AS \"视频数\"\nFROM    (\n            SELECT  ceiling(CAST( json_extract_scalar(message, '$.size') AS DOUBLE )/5 ) AS size\n            FROM    FUNCTION-logs\n            WHERE   json_extract_scalar(message, '$.size') IS NOT NULL \n        ) \nGROUP BY size\nORDER BY size",
+            "start": "-86400s",
+            "tokenQuery": "functionName: transcode|SELECT  concat(CAST(size*${视频大小统计单位(MB)} AS VARCHAR),'M内') AS \"video-size\"\n        ,COUNT(*) AS \"视频数\"\nFROM    (\n            SELECT  ceiling(CAST( json_extract_scalar(message, '$.size') AS DOUBLE )/${视频大小统计单位(MB)} ) AS size\n            FROM    FUNCTION-logs\n            WHERE   json_extract_scalar(message, '$.size') IS NOT NULL\n        ) \nGROUP BY size\nORDER BY size",
+            "tokens": [{
+                "end": 50,
+                "key": "视频大小统计单位(MB)",
+                "mode": "global",
+                "start": 49,
+                "value": "5"
+            }],
+            "topic": ""
+        },
+        "display": {
+            "axisNumb": 15,
+            "displayName": "视频大小分布(个)",
+            "formatType": "number",
+            "height": 3.5227273,
+            "inputMaxY": "",
+            "inputMinY": "",
+            "legendMaxWidth": 80,
+            "legendPosition": "right",
+            "margin": ["auto", 100, 60, "auto"],
+            "showBackground": true,
+            "showBorder": true,
+            "showTitle": true,
+            "stacking": false,
+            "whetherLabel": false,
+            "width": 4.78,
+            "xAxis": ["video-size"],
+            "xPos": 5.07,
+            "yAxis": ["视频数"],
+            "yPos": 17.545454,
+            "zIndex": 0
+        },
+        "action": {
+            "type": "disabled"
+        }
+    }, {
+        "title": "log-simple-transcode1584504773098",
+        "type": "column",
+        "search": {
+            "end": "now",
+            "logstore": "access-logs",
+            "query": "functionName: transcode|SELECT  video_format AS \"video_format\"\n        ,COUNT(*) AS \"视频数\"\nFROM    (\n            SELECT  ( json_extract_scalar(message, '$.video_format')) AS \"video_format\"\n            FROM    FUNCTION-logs\n            WHERE   json_extract_scalar(message, '$.video_format') IS NOT NULL \n        ) \n        \nGROUP BY video_format",
+            "start": "-86400s",
+            "tokenQuery": "functionName: transcode|SELECT  video_format AS \"video_format\"\n        ,COUNT(*) AS COUNT\nFROM    (\n            SELECT  ( json_extract_scalar(message, '$.video_format')) AS \"video_format\"\n            FROM    FUNCTION-logs\n            WHERE   json_extract_scalar(message, '$.video_format') IS NOT NULL\n        ) \nGROUP BY video_format",
+            "tokens": [],
+            "topic": ""
+        },
+        "display": {
+            "axisNumb": 15,
+            "displayName": "视频格式分布(个)",
+            "formatType": "number",
+            "height": 3.5227273,
+            "inputMaxY": "",
+            "inputMinY": "",
+            "legendMaxWidth": 80,
+            "legendPosition": "right",
+            "margin": ["auto", 100, "auto", "auto"],
+            "showBackground": true,
+            "showBorder": true,
+            "showTitle": true,
+            "stacking": false,
+            "whetherLabel": false,
+            "width": 4.78,
+            "xAxis": ["video_format"],
+            "xPos": 5.07,
+            "yAxis": ["视频数"],
+            "yPos": 12.102273,
+            "zIndex": 0
+        },
+        "action": {
+            "logStoreFilter": "",
+            "logStoreName": "access-logs",
+            "type": "disabled"
+        }
+    }, {
+        "title": "log-simple-transcode1584513575174",
+        "type": "line",
+        "search": {
+            "end": "now",
+            "logstore": "access-logs",
+            "query": "functionName: transcode and operation:InvokeFunction   | select \n\tdate_format(from_unixtime(__time__ - __time__% 600), '%m-%d %H:%i') as t,\n\tmax(concurrentReqLimit) as \"并发度限制\",\n\tmax(concurrentCount)  as \"实际并发度\" from access-logs\nGROUP by t order by t limit 1440",
+            "start": "-86400s",
+            "tokenQuery": "functionName: transcode and operation:InvokeFunction   | select \n\tdate_format(from_unixtime(__time__ - __time__% ${时间聚合粒度(s)}), '%m-%d %H:%i') as t,\n\tmax(concurrentReqLimit) as \"并发度限制\",\n\tmax(concurrentCount)  as \"实际并发度\" from access-logs\nGROUP by t order by t limit 1440",
+            "tokens": [{
+                "end": 116,
+                "key": "时间聚合粒度(s)",
+                "mode": "global",
+                "start": 113,
+                "value": "600"
+            }],
+            "topic": ""
+        },
+        "display": {
+            "areaLower": "",
+            "areaUpper": "",
+            "displayName": "账号级别并发度",
+            "formatType": "number",
+            "formatTypeRight": "number",
+            "height": 3.5227273,
+            "inputVal": "",
+            "inputValRight": "",
+            "intervalArray": [""],
+            "legendPosition": "right",
+            "lineShape": "smooth",
+            "margin": ["auto", 100, "auto", "auto"],
+            "pAxis": "",
+            "pointSize": true,
+            "showBackground": true,
+            "showBorder": true,
+            "showTitle": true,
+            "timing": {},
+            "width": 4.78,
+            "xAxis": ["t"],
+            "xPos": 0.25,
+            "yAxis": ["并发度限制", "实际并发度"],
+            "yAxisRight": [],
+            "yPos": 12.102273,
+            "zIndex": 0
+        },
+        "action": {
+            "type": "disabled"
+        }
+    }, {
+        "title": "log-simple-transcode1584513840575",
+        "type": "droplist",
+        "search": {
+            "end": "now",
+            "isInheritFilter": false,
+            "logstore": "",
+            "query": "",
+            "start": "-86400s",
+            "topic": ""
+        },
+        "display": {
+            "bindQuery": false,
+            "displayName": "时间聚合粒度",
+            "filterData": [{
+                "key": "时间聚合粒度(s)",
+                "list": ["60", "600", "3600"],
+                "type": "token"
+            }],
+            "height": 1.25,
+            "showBackground": false,
+            "showBorder": false,
+            "showTitle": false,
+            "width": 4.7,
+            "xPos": 0.25,
+            "yPos": 3.3522727,
+            "zIndex": 13
+        },
+        "action": {}
+    }, {
+        "title": "log-simple-transcode1584513934444",
+        "type": "markdown",
+        "search": {
+            "end": "now",
+            "logstore": "",
+            "query": "",
+            "start": "-86400s",
+            "topic": ""
+        },
+        "display": {
+            "bindQuery": false,
+            "displayName": "问号",
+            "height": 1.1931819,
+            "markdownStr": "<font color=grey font size=1> <strong>默认聚合粒度为十分钟<\/strong><br>\n60 为按分钟粒度的聚合，每分钟数据聚合为一个点<br>\n600 为按十分钟粒度聚合，3600 为按小时粒度聚合<br>\n\n\n<\/font>",
+            "queryTimeType": 2,
+            "showBackground": false,
+            "showBorder": false,
+            "showTitle": false,
+            "width": 4.475,
+            "xPos": 5.37,
+            "yPos": 3.3522727,
+            "zIndex": 14
+        },
+        "action": {}
+    }, {
+        "title": "log-simple-transcode1584514689434",
+        "type": "svg",
+        "search": {
+            "end": "now",
+            "logstore": "",
+            "query": "",
+            "start": "-86400s",
+            "topic": ""
+        },
+        "display": {
+            "displayName": "log-simple-transcode1584514689434",
+            "height": 0.4659091,
+            "showBackground": true,
+            "showBorder": true,
+            "showTitle": true,
+            "svg": "data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/PjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cudzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+PHN2ZyB0PSIxNTQ3MDM0NzM3MjM5IiBjbGFzcz0iaWNvbiIgc3R5bGU9IiIgdmlld0JveD0iMCAwIDEwMjQgMTAyNCIgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHAtaWQ9IjM0NzgiIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+PGRlZnM+PHN0eWxlIHR5cGU9InRleHQvY3NzIj48L3N0eWxlPjwvZGVmcz48cGF0aCBkPSJNNTEyIDg4NC4zNjM2MzZjLTUwLjA1OTYzNiAwLTk4LjcyMjkwOS05Ljg5MDkwOS0xNDQuNjQtMjkuMzkzNDU0QTM3Mi45MjIxODIgMzcyLjkyMjE4MiAwIDAgMSAyNDkuMDE4MTgyIDc3NC45ODE4MThhMzcyLjkyMjE4MiAzNzIuOTIyMTgyIDAgMCAxLTc5Ljk2NTA5MS0xMTguMzY1MDkxQTM2Ny44NzIgMzY3Ljg3MiAwIDAgMSAxMzkuNjM2MzY0IDUxMmMwLTUwLjA1OTYzNiA5Ljg5MDkwOS05OC43MjI5MDkgMjkuMzkzNDU0LTE0NC42NGEzNzIuOTQ1NDU1IDM3Mi45NDU0NTUgMCAwIDEgNzkuOTY1MDkxLTExOC4zNjUwOTEgMzcyLjk0NTQ1NSAzNzIuOTQ1NDU1IDAgMCAxIDExOC4zNjUwOTEtNzkuOTY1MDkxQTM2Ny44NzIgMzY3Ljg3MiAwIDAgMSA1MTIgMTM5LjYzNjM2NGM1MC4wNTk2MzYgMCA5OC43MjI5MDkgOS44OTA5MDkgMTQ0LjY0IDI5LjM5MzQ1NGEzNzIuOTQ1NDU1IDM3Mi45NDU0NTUgMCAwIDEgMTE4LjM2NTA5MSA3OS45NjUwOTEgMzcyLjk0NTQ1NSAzNzIuOTQ1NDU1IDAgMCAxIDc5Ljk2NTA5MSAxMTguMzY1MDkxQTM2Ny44NzIgMzY3Ljg3MiAwIDAgMSA4ODQuMzYzNjM2IDUxMmMwIDUwLjA1OTYzNi05Ljg5MDkwOSA5OC43MjI5MDktMjkuMzkzNDU0IDE0NC42NEEzNzIuODk4OTA5IDM3Mi44OTg5MDkgMCAwIDEgNzc0Ljk4MTgxOCA3NzQuOTgxODE4YTM3Mi44OTg5MDkgMzcyLjg5ODkwOSAwIDAgMS0xMTguMzY1MDkxIDc5Ljk2NTA5MUEzNjcuODcyIDM2Ny44NzIgMCAwIDEgNTEyIDg4NC4zNjM2MzZ6IG0wLTY5OC4xODE4MThjLTQzLjc3NiAwLTg2LjM0MTgxOCA4LjYzNDE4Mi0xMjYuNDY0IDI1LjY5MzA5MWEzMjYuNTE2MzY0IDMyNi41MTYzNjQgMCAwIDAtMTAzLjYzMzQ1NSA3MC4wNTA5MDkgMzI2LjUzOTYzNiAzMjYuNTM5NjM2IDAgMCAwLTcwLjAyNzYzNiAxMDMuNjEwMTgyQTMyMS42MjkwOTEgMzIxLjYyOTA5MSAwIDAgMCAxODYuMTgxODE4IDUxMmMwIDQzLjc3NiA4LjYzNDE4MiA4Ni4zNDE4MTggMjUuNjkzMDkxIDEyNi40NjRhMzI2LjUxNjM2NCAzMjYuNTE2MzY0IDAgMCAwIDcwLjA1MDkwOSAxMDMuNjMzNDU1IDMyNi41MTYzNjQgMzI2LjUxNjM2NCAwIDAgMCAxMDMuNjEwMTgyIDcwLjAyNzYzNkEzMjEuNjI5MDkxIDMyMS42MjkwOTEgMCAwIDAgNTEyIDgzNy44MTgxODJjNDMuNzc2IDAgODYuMzQxODE4LTguNjM0MTgyIDEyNi40NjQtMjUuNjkzMDkxYTMyNi41MTYzNjQgMzI2LjUxNjM2NCAwIDAgMCAxMDMuNjMzNDU1LTcwLjA1MDkwOSAzMjYuNTE2MzY0IDMyNi41MTYzNjQgMCAwIDAgNzAuMDI3NjM2LTEwMy42MTAxODJBMzIxLjYyOTA5MSAzMjEuNjI5MDkxIDAgMCAwIDgzNy44MTgxODIgNTEyYzAtNDMuNzc2LTguNjM0MTgyLTg2LjM0MTgxOC0yNS42OTMwOTEtMTI2LjQ2NGEzMjYuNTE2MzY0IDMyNi41MTYzNjQgMCAwIDAtNzAuMDUwOTA5LTEwMy42MzM0NTUgMzI2LjUxNjM2NCAzMjYuNTE2MzY0IDAgMCAwLTEwMy42MTAxODItNzAuMDI3NjM2QTMyMS42NTIzNjQgMzIxLjY1MjM2NCAwIDAgMCA1MTIgMTg2LjE4MTgxOHogbS0xLjkwODM2NCA0MzUuMTMwMTgyYTE3LjkyIDE3LjkyIDAgMCAxLTE3Ljg3MzQ1NC0xNi42ODY1NDVjLTIuODYyNTQ1LTQxLjg5MDkwOSA2Ljg2NTQ1NS03MC4yODM2MzYgMTUuNTQ2MTgyLTg2LjcxNDE4MiA3LjY4LTE0LjU5MiAyMi45MjM2MzYtMjguMTgzMjczIDMwLjI1NDU0NS0zNC43MjI5MDlsMS44NjE4MTgtMS42NzU2MzdjMzcuOTU3ODE4LTM1LjA5NTI3MyAzNy40OTIzNjQtNTcuMTU3ODE4IDM3LjM5OTI3My01OC43ODY5MDlhMTYuMzg0IDE2LjM4NCAwIDAgMS0wLjA5MzA5MS0wLjY1MTYzNmMtMi44ODU4MTgtMjEuOTkyNzI3LTEyLjgtMzYuNjMxMjczLTMwLjI3NzgxOC00NC43MzAxODItOS42ODE0NTUtNC40OTE2MzYtMjEuMTc4MTgyLTYuNzcyMzY0LTM0LjE0MTA5MS02LjgxODkwOWExNDUuNTI0MzY0IDE0NS41MjQzNjQgMCAwIDEtMy41Mzc0NTUtMC4wMjMyNzNjLTI3LjI3NTYzNiAwLjA0NjU0NS00NS43Nzc0NTUgMTEuNjEzMDkxLTU2LjU3NiAzNS4zNzQ1NDZhMTA2LjU2NTgxOCAxMDYuNTY1ODE4IDAgMCAwLTguODIwMzYzIDM4LjM1MzQ1NCAxNy45MiAxNy45MiAwIDEgMS0zNS44NCAwYzAtMS4wOTM4MTggMC4xNjI5MDktMjcuMDY2MTgyIDEyLjAzMi01My4yMDE0NTQgNy4zMzA5MDktMTYuMTA0NzI3IDE3LjU3MDkwOS0yOS4wOTA5MDkgMzAuNDQwNzI3LTM4LjUxNjM2NCAxNi4wODE0NTUtMTEuNzk5MjczIDM1Ljg0LTE3LjgwMzYzNiA1OC43NDAzNjQtMTcuODUwMTgybDMuMDI1NDU0IDAuMDIzMjczaDAuNjI4MzY0YzE4LjE3NiAwLjA2OTgxOCAzNC42OTk2MzYgMy40OTA5MDkgNDkuMTA1NDU0IDEwLjE0NjkwOSAxOS45NjggOS4yNjI1NDUgNDQuOTE2MzY0IDI5LjI3NzA5MSA1MC42ODggNzIuMTQ1NDU1IDAuNjc0OTA5IDMuOTA5ODE4IDEuNDY2MTgyIDE0LjEwMzI3My0zLjc3MDE4MSAyOS4wNjc2MzYtNy4wMjgzNjQgMjAuMDg0MzY0LTIyLjA2MjU0NSA0MC44NjY5MDktNDQuNjgzNjM3IDYxLjc4OTA5MWEyMjEuMzIzNjM2IDIyMS4zMjM2MzYgMCAwIDEtMi4zMjcyNzIgMi4wOTQ1NDVjLTQuODY0IDQuMzI4NzI3LTE3LjczMzgxOCAxNS44MjU0NTUtMjIuNDExNjM3IDI0LjY5MjM2NC02LjUxNjM2NCAxMi4zMzQ1NDUtMTMuNzc3NDU1IDM0LjA0OC0xMS40OTY3MjcgNjcuNTM3NDU0YTE3LjkyIDE3LjkyIDAgMCAxLTE3Ljg3MzQ1NSAxOS4xNTM0NTV6IG02Ny4zNTEyNzMtMTk3LjgxODE4MnYwLjAyMzI3M3ogbTAgMHYwek01MzQuODA3MjczIDY3NS4zNzQ1NDV2NS43NDgzNjRhMjEuNjY2OTA5IDIxLjY2NjkwOSAwIDEgMS00My4zNTcwOTEgMHYtNS43NDgzNjRhMjEuNjY2OTA5IDIxLjY2NjkwOSAwIDEgMSA0My4zNTcwOTEgMHoiIGZpbGw9IiMyMUEzREQiIHAtaWQ9IjM0NzkiPjwvcGF0aD48L3N2Zz4=",
+            "width": 0.32794118,
+            "xPos": 5.1463237,
+            "yPos": 3.3522727,
+            "zIndex": 15
+        },
+        "action": {}
+    }, {
+        "title": "log-simple-transcode1584518068886",
+        "type": "droplist",
+        "search": {
+            "end": "now",
+            "isInheritFilter": false,
+            "logstore": "",
+            "query": "",
+            "start": "-86400s",
+            "topic": ""
+        },
+        "display": {
+            "bindQuery": false,
+            "displayName": "执行时间统计单位",
+            "filterData": [{
+                "key": "执行时间统计单位(s)",
+                "list": ["10", "60"],
+                "type": "token"
+            }],
+            "height": 1.25,
+            "showBackground": false,
+            "showBorder": false,
+            "showTitle": false,
+            "width": 4.7,
+            "xPos": 0.25,
+            "yPos": 15.738636,
+            "zIndex": 15
+        },
+        "action": {}
+    }, {
+        "title": "log-simple-transcode1584518490240",
+        "type": "droplist",
+        "search": {
+            "end": "now",
+            "isInheritFilter": false,
+            "logstore": "",
+            "query": "",
+            "start": "-86400s",
+            "topic": ""
+        },
+        "display": {
+            "bindQuery": false,
+            "displayName": "视频大小统计单位",
+            "filterData": [{
+                "key": "视频大小统计单位(MB)",
+                "list": ["1", "5", "10", "100", "1000"],
+                "type": "token"
+            }],
+            "height": 1.25,
+            "showBackground": false,
+            "showBorder": false,
+            "showTitle": false,
+            "width": 4.71,
+            "xPos": 5.15,
+            "yPos": 15.738636,
+            "zIndex": 16
+        },
+        "action": {}
+    }, {
+        "title": "log-simple-transcode1584518557408",
+        "type": "markdown",
+        "search": {
+            "end": "now",
+            "logstore": "",
+            "query": "",
+            "start": "-86400s",
+            "topic": ""
+        },
+        "display": {
+            "bindQuery": false,
+            "displayName": "Markdown",
+            "height": 0.6931818,
+            "markdownStr": "<font color=grey font size=1><strong>默认展示以 10 秒为粒度的执行时间分布情况<\/strong><br>您可以选择 60 查看分钟粒度执行时间分布情况<br>\n\n<\/font>",
+            "queryTimeType": 2,
+            "showBackground": false,
+            "showBorder": false,
+            "showTitle": false,
+            "width": 3.7691176,
+            "xPos": 1.182353,
+            "yPos": 16.520952,
+            "zIndex": 17
+        },
+        "action": {}
+    }, {
+        "title": "log-simple-transcode1584518576125",
+        "type": "svg",
+        "search": {
+            "end": "now",
+            "logstore": "",
+            "query": "",
+            "start": "-86400s",
+            "topic": ""
+        },
+        "display": {
+            "displayName": "log-simple-transcode1584514689434",
+            "height": 0.4659091,
+            "showBackground": true,
+            "showBorder": true,
+            "showTitle": true,
+            "svg": "data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/PjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cudzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+PHN2ZyB0PSIxNTQ3MDM0NzM3MjM5IiBjbGFzcz0iaWNvbiIgc3R5bGU9IiIgdmlld0JveD0iMCAwIDEwMjQgMTAyNCIgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHAtaWQ9IjM0NzgiIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+PGRlZnM+PHN0eWxlIHR5cGU9InRleHQvY3NzIj48L3N0eWxlPjwvZGVmcz48cGF0aCBkPSJNNTEyIDg4NC4zNjM2MzZjLTUwLjA1OTYzNiAwLTk4LjcyMjkwOS05Ljg5MDkwOS0xNDQuNjQtMjkuMzkzNDU0QTM3Mi45MjIxODIgMzcyLjkyMjE4MiAwIDAgMSAyNDkuMDE4MTgyIDc3NC45ODE4MThhMzcyLjkyMjE4MiAzNzIuOTIyMTgyIDAgMCAxLTc5Ljk2NTA5MS0xMTguMzY1MDkxQTM2Ny44NzIgMzY3Ljg3MiAwIDAgMSAxMzkuNjM2MzY0IDUxMmMwLTUwLjA1OTYzNiA5Ljg5MDkwOS05OC43MjI5MDkgMjkuMzkzNDU0LTE0NC42NGEzNzIuOTQ1NDU1IDM3Mi45NDU0NTUgMCAwIDEgNzkuOTY1MDkxLTExOC4zNjUwOTEgMzcyLjk0NTQ1NSAzNzIuOTQ1NDU1IDAgMCAxIDExOC4zNjUwOTEtNzkuOTY1MDkxQTM2Ny44NzIgMzY3Ljg3MiAwIDAgMSA1MTIgMTM5LjYzNjM2NGM1MC4wNTk2MzYgMCA5OC43MjI5MDkgOS44OTA5MDkgMTQ0LjY0IDI5LjM5MzQ1NGEzNzIuOTQ1NDU1IDM3Mi45NDU0NTUgMCAwIDEgMTE4LjM2NTA5MSA3OS45NjUwOTEgMzcyLjk0NTQ1NSAzNzIuOTQ1NDU1IDAgMCAxIDc5Ljk2NTA5MSAxMTguMzY1MDkxQTM2Ny44NzIgMzY3Ljg3MiAwIDAgMSA4ODQuMzYzNjM2IDUxMmMwIDUwLjA1OTYzNi05Ljg5MDkwOSA5OC43MjI5MDktMjkuMzkzNDU0IDE0NC42NEEzNzIuODk4OTA5IDM3Mi44OTg5MDkgMCAwIDEgNzc0Ljk4MTgxOCA3NzQuOTgxODE4YTM3Mi44OTg5MDkgMzcyLjg5ODkwOSAwIDAgMS0xMTguMzY1MDkxIDc5Ljk2NTA5MUEzNjcuODcyIDM2Ny44NzIgMCAwIDEgNTEyIDg4NC4zNjM2MzZ6IG0wLTY5OC4xODE4MThjLTQzLjc3NiAwLTg2LjM0MTgxOCA4LjYzNDE4Mi0xMjYuNDY0IDI1LjY5MzA5MWEzMjYuNTE2MzY0IDMyNi41MTYzNjQgMCAwIDAtMTAzLjYzMzQ1NSA3MC4wNTA5MDkgMzI2LjUzOTYzNiAzMjYuNTM5NjM2IDAgMCAwLTcwLjAyNzYzNiAxMDMuNjEwMTgyQTMyMS42MjkwOTEgMzIxLjYyOTA5MSAwIDAgMCAxODYuMTgxODE4IDUxMmMwIDQzLjc3NiA4LjYzNDE4MiA4Ni4zNDE4MTggMjUuNjkzMDkxIDEyNi40NjRhMzI2LjUxNjM2NCAzMjYuNTE2MzY0IDAgMCAwIDcwLjA1MDkwOSAxMDMuNjMzNDU1IDMyNi41MTYzNjQgMzI2LjUxNjM2NCAwIDAgMCAxMDMuNjEwMTgyIDcwLjAyNzYzNkEzMjEuNjI5MDkxIDMyMS42MjkwOTEgMCAwIDAgNTEyIDgzNy44MTgxODJjNDMuNzc2IDAgODYuMzQxODE4LTguNjM0MTgyIDEyNi40NjQtMjUuNjkzMDkxYTMyNi41MTYzNjQgMzI2LjUxNjM2NCAwIDAgMCAxMDMuNjMzNDU1LTcwLjA1MDkwOSAzMjYuNTE2MzY0IDMyNi41MTYzNjQgMCAwIDAgNzAuMDI3NjM2LTEwMy42MTAxODJBMzIxLjYyOTA5MSAzMjEuNjI5MDkxIDAgMCAwIDgzNy44MTgxODIgNTEyYzAtNDMuNzc2LTguNjM0MTgyLTg2LjM0MTgxOC0yNS42OTMwOTEtMTI2LjQ2NGEzMjYuNTE2MzY0IDMyNi41MTYzNjQgMCAwIDAtNzAuMDUwOTA5LTEwMy42MzM0NTUgMzI2LjUxNjM2NCAzMjYuNTE2MzY0IDAgMCAwLTEwMy42MTAxODItNzAuMDI3NjM2QTMyMS42NTIzNjQgMzIxLjY1MjM2NCAwIDAgMCA1MTIgMTg2LjE4MTgxOHogbS0xLjkwODM2NCA0MzUuMTMwMTgyYTE3LjkyIDE3LjkyIDAgMCAxLTE3Ljg3MzQ1NC0xNi42ODY1NDVjLTIuODYyNTQ1LTQxLjg5MDkwOSA2Ljg2NTQ1NS03MC4yODM2MzYgMTUuNTQ2MTgyLTg2LjcxNDE4MiA3LjY4LTE0LjU5MiAyMi45MjM2MzYtMjguMTgzMjczIDMwLjI1NDU0NS0zNC43MjI5MDlsMS44NjE4MTgtMS42NzU2MzdjMzcuOTU3ODE4LTM1LjA5NTI3MyAzNy40OTIzNjQtNTcuMTU3ODE4IDM3LjM5OTI3My01OC43ODY5MDlhMTYuMzg0IDE2LjM4NCAwIDAgMS0wLjA5MzA5MS0wLjY1MTYzNmMtMi44ODU4MTgtMjEuOTkyNzI3LTEyLjgtMzYuNjMxMjczLTMwLjI3NzgxOC00NC43MzAxODItOS42ODE0NTUtNC40OTE2MzYtMjEuMTc4MTgyLTYuNzcyMzY0LTM0LjE0MTA5MS02LjgxODkwOWExNDUuNTI0MzY0IDE0NS41MjQzNjQgMCAwIDEtMy41Mzc0NTUtMC4wMjMyNzNjLTI3LjI3NTYzNiAwLjA0NjU0NS00NS43Nzc0NTUgMTEuNjEzMDkxLTU2LjU3NiAzNS4zNzQ1NDZhMTA2LjU2NTgxOCAxMDYuNTY1ODE4IDAgMCAwLTguODIwMzYzIDM4LjM1MzQ1NCAxNy45MiAxNy45MiAwIDEgMS0zNS44NCAwYzAtMS4wOTM4MTggMC4xNjI5MDktMjcuMDY2MTgyIDEyLjAzMi01My4yMDE0NTQgNy4zMzA5MDktMTYuMTA0NzI3IDE3LjU3MDkwOS0yOS4wOTA5MDkgMzAuNDQwNzI3LTM4LjUxNjM2NCAxNi4wODE0NTUtMTEuNzk5MjczIDM1Ljg0LTE3LjgwMzYzNiA1OC43NDAzNjQtMTcuODUwMTgybDMuMDI1NDU0IDAuMDIzMjczaDAuNjI4MzY0YzE4LjE3NiAwLjA2OTgxOCAzNC42OTk2MzYgMy40OTA5MDkgNDkuMTA1NDU0IDEwLjE0NjkwOSAxOS45NjggOS4yNjI1NDUgNDQuOTE2MzY0IDI5LjI3NzA5MSA1MC42ODggNzIuMTQ1NDU1IDAuNjc0OTA5IDMuOTA5ODE4IDEuNDY2MTgyIDE0LjEwMzI3My0zLjc3MDE4MSAyOS4wNjc2MzYtNy4wMjgzNjQgMjAuMDg0MzY0LTIyLjA2MjU0NSA0MC44NjY5MDktNDQuNjgzNjM3IDYxLjc4OTA5MWEyMjEuMzIzNjM2IDIyMS4zMjM2MzYgMCAwIDEtMi4zMjcyNzIgMi4wOTQ1NDVjLTQuODY0IDQuMzI4NzI3LTE3LjczMzgxOCAxNS44MjU0NTUtMjIuNDExNjM3IDI0LjY5MjM2NC02LjUxNjM2NCAxMi4zMzQ1NDUtMTMuNzc3NDU1IDM0LjA0OC0xMS40OTY3MjcgNjcuNTM3NDU0YTE3LjkyIDE3LjkyIDAgMCAxLTE3Ljg3MzQ1NSAxOS4xNTM0NTV6IG02Ny4zNTEyNzMtMTk3LjgxODE4MnYwLjAyMzI3M3ogbTAgMHYwek01MzQuODA3MjczIDY3NS4zNzQ1NDV2NS43NDgzNjRhMjEuNjY2OTA5IDIxLjY2NjkwOSAwIDEgMS00My4zNTcwOTEgMHYtNS43NDgzNjRhMjEuNjY2OTA5IDIxLjY2NjkwOSAwIDEgMSA0My4zNTcwOTEgMHoiIGZpbGw9IiMyMUEzREQiIHAtaWQ9IjM0NzkiPjwvcGF0aD48L3N2Zz4=",
+            "width": 0.32,
+            "xPos": 6.002941,
+            "yPos": 16.511364,
+            "zIndex": 18
+        },
+        "action": {}
+    }, {
+        "title": "log-simple-transcode1584518590068",
+        "type": "svg",
+        "search": {
+            "end": "now",
+            "logstore": "",
+            "query": "",
+            "start": "-86400s",
+            "topic": ""
+        },
+        "display": {
+            "displayName": "log-simple-transcode1584514689434",
+            "height": 0.4659091,
+            "showBackground": true,
+            "showBorder": true,
+            "showTitle": true,
+            "svg": "data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/PjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cudzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+PHN2ZyB0PSIxNTQ3MDM0NzM3MjM5IiBjbGFzcz0iaWNvbiIgc3R5bGU9IiIgdmlld0JveD0iMCAwIDEwMjQgMTAyNCIgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHAtaWQ9IjM0NzgiIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+PGRlZnM+PHN0eWxlIHR5cGU9InRleHQvY3NzIj48L3N0eWxlPjwvZGVmcz48cGF0aCBkPSJNNTEyIDg4NC4zNjM2MzZjLTUwLjA1OTYzNiAwLTk4LjcyMjkwOS05Ljg5MDkwOS0xNDQuNjQtMjkuMzkzNDU0QTM3Mi45MjIxODIgMzcyLjkyMjE4MiAwIDAgMSAyNDkuMDE4MTgyIDc3NC45ODE4MThhMzcyLjkyMjE4MiAzNzIuOTIyMTgyIDAgMCAxLTc5Ljk2NTA5MS0xMTguMzY1MDkxQTM2Ny44NzIgMzY3Ljg3MiAwIDAgMSAxMzkuNjM2MzY0IDUxMmMwLTUwLjA1OTYzNiA5Ljg5MDkwOS05OC43MjI5MDkgMjkuMzkzNDU0LTE0NC42NGEzNzIuOTQ1NDU1IDM3Mi45NDU0NTUgMCAwIDEgNzkuOTY1MDkxLTExOC4zNjUwOTEgMzcyLjk0NTQ1NSAzNzIuOTQ1NDU1IDAgMCAxIDExOC4zNjUwOTEtNzkuOTY1MDkxQTM2Ny44NzIgMzY3Ljg3MiAwIDAgMSA1MTIgMTM5LjYzNjM2NGM1MC4wNTk2MzYgMCA5OC43MjI5MDkgOS44OTA5MDkgMTQ0LjY0IDI5LjM5MzQ1NGEzNzIuOTQ1NDU1IDM3Mi45NDU0NTUgMCAwIDEgMTE4LjM2NTA5MSA3OS45NjUwOTEgMzcyLjk0NTQ1NSAzNzIuOTQ1NDU1IDAgMCAxIDc5Ljk2NTA5MSAxMTguMzY1MDkxQTM2Ny44NzIgMzY3Ljg3MiAwIDAgMSA4ODQuMzYzNjM2IDUxMmMwIDUwLjA1OTYzNi05Ljg5MDkwOSA5OC43MjI5MDktMjkuMzkzNDU0IDE0NC42NEEzNzIuODk4OTA5IDM3Mi44OTg5MDkgMCAwIDEgNzc0Ljk4MTgxOCA3NzQuOTgxODE4YTM3Mi44OTg5MDkgMzcyLjg5ODkwOSAwIDAgMS0xMTguMzY1MDkxIDc5Ljk2NTA5MUEzNjcuODcyIDM2Ny44NzIgMCAwIDEgNTEyIDg4NC4zNjM2MzZ6IG0wLTY5OC4xODE4MThjLTQzLjc3NiAwLTg2LjM0MTgxOCA4LjYzNDE4Mi0xMjYuNDY0IDI1LjY5MzA5MWEzMjYuNTE2MzY0IDMyNi41MTYzNjQgMCAwIDAtMTAzLjYzMzQ1NSA3MC4wNTA5MDkgMzI2LjUzOTYzNiAzMjYuNTM5NjM2IDAgMCAwLTcwLjAyNzYzNiAxMDMuNjEwMTgyQTMyMS42MjkwOTEgMzIxLjYyOTA5MSAwIDAgMCAxODYuMTgxODE4IDUxMmMwIDQzLjc3NiA4LjYzNDE4MiA4Ni4zNDE4MTggMjUuNjkzMDkxIDEyNi40NjRhMzI2LjUxNjM2NCAzMjYuNTE2MzY0IDAgMCAwIDcwLjA1MDkwOSAxMDMuNjMzNDU1IDMyNi41MTYzNjQgMzI2LjUxNjM2NCAwIDAgMCAxMDMuNjEwMTgyIDcwLjAyNzYzNkEzMjEuNjI5MDkxIDMyMS42MjkwOTEgMCAwIDAgNTEyIDgzNy44MTgxODJjNDMuNzc2IDAgODYuMzQxODE4LTguNjM0MTgyIDEyNi40NjQtMjUuNjkzMDkxYTMyNi41MTYzNjQgMzI2LjUxNjM2NCAwIDAgMCAxMDMuNjMzNDU1LTcwLjA1MDkwOSAzMjYuNTE2MzY0IDMyNi41MTYzNjQgMCAwIDAgNzAuMDI3NjM2LTEwMy42MTAxODJBMzIxLjYyOTA5MSAzMjEuNjI5MDkxIDAgMCAwIDgzNy44MTgxODIgNTEyYzAtNDMuNzc2LTguNjM0MTgyLTg2LjM0MTgxOC0yNS42OTMwOTEtMTI2LjQ2NGEzMjYuNTE2MzY0IDMyNi41MTYzNjQgMCAwIDAtNzAuMDUwOTA5LTEwMy42MzM0NTUgMzI2LjUxNjM2NCAzMjYuNTE2MzY0IDAgMCAwLTEwMy42MTAxODItNzAuMDI3NjM2QTMyMS42NTIzNjQgMzIxLjY1MjM2NCAwIDAgMCA1MTIgMTg2LjE4MTgxOHogbS0xLjkwODM2NCA0MzUuMTMwMTgyYTE3LjkyIDE3LjkyIDAgMCAxLTE3Ljg3MzQ1NC0xNi42ODY1NDVjLTIuODYyNTQ1LTQxLjg5MDkwOSA2Ljg2NTQ1NS03MC4yODM2MzYgMTUuNTQ2MTgyLTg2LjcxNDE4MiA3LjY4LTE0LjU5MiAyMi45MjM2MzYtMjguMTgzMjczIDMwLjI1NDU0NS0zNC43MjI5MDlsMS44NjE4MTgtMS42NzU2MzdjMzcuOTU3ODE4LTM1LjA5NTI3MyAzNy40OTIzNjQtNTcuMTU3ODE4IDM3LjM5OTI3My01OC43ODY5MDlhMTYuMzg0IDE2LjM4NCAwIDAgMS0wLjA5MzA5MS0wLjY1MTYzNmMtMi44ODU4MTgtMjEuOTkyNzI3LTEyLjgtMzYuNjMxMjczLTMwLjI3NzgxOC00NC43MzAxODItOS42ODE0NTUtNC40OTE2MzYtMjEuMTc4MTgyLTYuNzcyMzY0LTM0LjE0MTA5MS02LjgxODkwOWExNDUuNTI0MzY0IDE0NS41MjQzNjQgMCAwIDEtMy41Mzc0NTUtMC4wMjMyNzNjLTI3LjI3NTYzNiAwLjA0NjU0NS00NS43Nzc0NTUgMTEuNjEzMDkxLTU2LjU3NiAzNS4zNzQ1NDZhMTA2LjU2NTgxOCAxMDYuNTY1ODE4IDAgMCAwLTguODIwMzYzIDM4LjM1MzQ1NCAxNy45MiAxNy45MiAwIDEgMS0zNS44NCAwYzAtMS4wOTM4MTggMC4xNjI5MDktMjcuMDY2MTgyIDEyLjAzMi01My4yMDE0NTQgNy4zMzA5MDktMTYuMTA0NzI3IDE3LjU3MDkwOS0yOS4wOTA5MDkgMzAuNDQwNzI3LTM4LjUxNjM2NCAxNi4wODE0NTUtMTEuNzk5MjczIDM1Ljg0LTE3LjgwMzYzNiA1OC43NDAzNjQtMTcuODUwMTgybDMuMDI1NDU0IDAuMDIzMjczaDAuNjI4MzY0YzE4LjE3NiAwLjA2OTgxOCAzNC42OTk2MzYgMy40OTA5MDkgNDkuMTA1NDU0IDEwLjE0NjkwOSAxOS45NjggOS4yNjI1NDUgNDQuOTE2MzY0IDI5LjI3NzA5MSA1MC42ODggNzIuMTQ1NDU1IDAuNjc0OTA5IDMuOTA5ODE4IDEuNDY2MTgyIDE0LjEwMzI3My0zLjc3MDE4MSAyOS4wNjc2MzYtNy4wMjgzNjQgMjAuMDg0MzY0LTIyLjA2MjU0NSA0MC44NjY5MDktNDQuNjgzNjM3IDYxLjc4OTA5MWEyMjEuMzIzNjM2IDIyMS4zMjM2MzYgMCAwIDEtMi4zMjcyNzIgMi4wOTQ1NDVjLTQuODY0IDQuMzI4NzI3LTE3LjczMzgxOCAxNS44MjU0NTUtMjIuNDExNjM3IDI0LjY5MjM2NC02LjUxNjM2NCAxMi4zMzQ1NDUtMTMuNzc3NDU1IDM0LjA0OC0xMS40OTY3MjcgNjcuNTM3NDU0YTE3LjkyIDE3LjkyIDAgMCAxLTE3Ljg3MzQ1NSAxOS4xNTM0NTV6IG02Ny4zNTEyNzMtMTk3LjgxODE4MnYwLjAyMzI3M3ogbTAgMHYwek01MzQuODA3MjczIDY3NS4zNzQ1NDV2NS43NDgzNjRhMjEuNjY2OTA5IDIxLjY2NjkwOSAwIDEgMS00My4zNTcwOTEgMHYtNS43NDgzNjRhMjEuNjY2OTA5IDIxLjY2NjkwOSAwIDEgMSA0My4zNTcwOTEgMHoiIGZpbGw9IiMyMUEzREQiIHAtaWQ9IjM0NzkiPjwvcGF0aD48L3N2Zz4=",
+            "width": 0.32,
+            "xPos": 0.9632352,
+            "yPos": 16.5,
+            "zIndex": 19
+        },
+        "action": {}
+    }, {
+        "title": "log-simple-transcode1584518837125",
+        "type": "markdown",
+        "search": {
+            "end": "now",
+            "logstore": "",
+            "query": "",
+            "start": "-86400s",
+            "topic": ""
+        },
+        "display": {
+            "bindQuery": false,
+            "displayName": "Markdown",
+            "height": 0.89772725,
+            "markdownStr": "<font color=grey font size=1><strong>默认展示以 5MB 为粒度的视频大小分布情况<\/strong><br>您可以选择查看以 1MB/10MB/100MB/1000MB 为粒度的视频大小分布情况<br>\n\n<\/font>",
+            "queryTimeType": 2,
+            "showBackground": false,
+            "showBorder": false,
+            "showTitle": false,
+            "width": 3.6367648,
+            "xPos": 6.207647,
+            "yPos": 16.511364,
+            "zIndex": 20
+        },
+        "action": {}
+    }]
 }

@@ -6,7 +6,7 @@
 
 ![](https://img.alicdn.com/tfs/TB1sPfQzhD1gK0jSZFKXXcJrVXa-612-185.png)
 
-如上图所示， 用户上传格式为 .mov, .mp4, .flv 格式的视频到 OSS 指定前缀目录(该示例是 video/inputs/), OSS 触发器自动触发函数执行， 函数调用 FFmpeg 进行视频转码(在该示例中是将视频统一转为 640*480 的 mp4)， 并且将转码后的视频保存回 OSS 指定的输出目录(该示例是 video/outputs/)。
+如上图所示， 用户上传任意格式的视频到 OSS 指定前缀目录(该示例是 video/inputs/), OSS 触发器自动触发函数执行， 函数调用 FFmpeg 进行视频转码(在该示例中是将视频统一转为 640*480 的 mp4)， 并且将转码后的视频保存回 OSS 指定的输出目录(该示例是 video/outputs/)。
 
 您可以直接登录 [函数计算控制台](https://statistics.functioncompute.com/?title=ServerlessVideo&theme=ServerlessVideo&author=rsong&src=article&url=http://fc.console.aliyun.com)，选择应用中心的 **FFmpeg 视频转码服务** 这个应用一键配置并部署。
 
@@ -111,9 +111,20 @@ json_log={
     "video_format": extension[1:],
     "size": M_size, #单位是M
     "start_time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start_time_stamp+8*3600)), #北京时间
-    "end_time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(end_time_stamp+8*3600)), #北京时间
-    "elapsed_time": elapsed_time, #单位是秒
     "processed_video_location": OUTPUT_DST,
 }
 print(json.dumps(json_log))
+```
+> 注意: 调用 ffmpeg 命令的时候， 最好将 ffmpeg 命令输出到 stdout 和 stderr 中日志不要打印出来， 理由如下：
+> - 成功调用无效打印， 日志意义不大
+> - FFmpeg 执行的日志有极低可能会影响后面的日志收集到 SLS
+
+比如 python 的做法：
+
+```python
+try:
+    result = subprocess.run(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+except subprocess.CalledProcessError as exc:
+    print(result.stderr.decode()) # FFmpeg 命令有错才打印
 ```
