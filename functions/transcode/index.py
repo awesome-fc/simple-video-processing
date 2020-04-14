@@ -60,7 +60,7 @@ def handler(event, context):
             'returncode': exc.returncode,
             'cmd': exc.cmd,
             'output': exc.output.decode(),
-            'err_log': result.stderr.decode(),
+            'stderr': exc.stderr.decode(),
             'event': evt,
         }
         print(json.dumps(err_ret))
