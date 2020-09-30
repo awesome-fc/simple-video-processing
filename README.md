@@ -19,9 +19,7 @@
 - 对视频进行分片 -> 转码 -> 合成处理， 详情参考：[视频处理工作流系统](https://github.com/awesome-fc/fc-fnf-video-processing/tree/master/video-processing)
     > Sereverless 工作流可以编排各种复杂的视频处理工作流程，比如第一步是分片转码， 第二步是将转码后的详情记录到数据， 第三步是根据视频属性决定是否将该视频预热到 CDN 等， 所有的步骤都是可以完全自定义的
 
-- 联系函数计算团队(钉钉群号: 11721331) 或者提工单
-    - 适当放宽执行时长限制
-    - 申请使用更高的函数内存 12G(8vCPU)
+- [使用性能型实例](https://help.aliyun.com/document_detail/179379.html)
 
 ### 优势
 基于函数计算构建 Serverless 音视频处理系统具有如下优势：
