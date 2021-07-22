@@ -1,0 +1,88 @@
+edition: 1.0.0
+name: transform_code
+access: default
+vars:
+  region: cn-shenzhen
+  simple-transcode-service:
+    name: simple-transcode-service
+    description: oss trigger function to transcode video, the function of service
+    role:
+      name: simple-transcode-serviceDefaultRole3
+      policies:
+        - Version: '1'
+          statement:
+            - Effect: Allow
+              Action:
+                - oss:ListObjects
+                - oss:GetObject
+                - oss:PutObject
+                - fc:InvokeFunction
+                - log:CreateDashboard
+                - log:CreateIndex
+                - log:UpdateIndex
+              Resource: '*'
+    internetAccess: true
+    logConfig:
+      project: log-simple-transcode
+      logstore: function-logs
+services:
+  log-simple-transcode1:
+    component: devsapp/sls
+    props:
+      regionId: ${vars.region}
+      project: log-simple-transcode
+      description: The log of all the functions of video transcoder app
+      logstore: access-logs
+      logstoreOption:
+        ttl: 10
+        shardCount: 2
+  log-simple-transcode2:
+    component: devsapp/sls
+    props:
+      regionId: ${vars.region}
+      project: log-simple-transcode
+      description: The log of all the functions of video transcoder app
+      logstore: function-logs
+      logstoreOption:
+        ttl: 10
+        shardCount: 2 
+  fc-simple-transcode-service-init-helper:
+    component: devsapp/fc
+    props:
+      region: ${vars.region}
+      service: ${vars.simple-transcode-service}
+      function:
+        name: init-helper
+        handler: index.handler
+        timeout: 600
+        memorySize: 512
+        runtime: python2.7
+        codeUri: ./functions/init-helper
+  fc-simple-transcode-service-transcode:
+    component: devsapp/fc
+    props:
+      region: ${vars.region}
+      service: ${vars.simple-transcode-service}
+      function:
+        name: transcode
+        handler: index.handler
+        timeout: 600
+        memorySize: 3072
+        runtime: python3
+        codeUri: ./functions/transcode
+        environmentVariables:
+          DST_TARGET: .mp4
+          OUTPUT_DST: video/outputs/
+      triggers:
+        - name: oss-t
+          type: oss
+          config:
+            events:
+              - oss:ObjectCreated:PutObject
+              - oss:ObjectCreated:PostObject
+              - oss:ObjectCreated:CompleteMultipartUpload
+            filter:
+              Key:
+                Prefix: video/inputs/
+                Suffix: ''
+            bucketName: bucket-demo

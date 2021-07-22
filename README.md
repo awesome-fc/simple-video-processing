@@ -59,28 +59,40 @@ git clone  https://github.com/awesome-fc/simple-video-processing.git
 
 进入 `simple-video-processing` 目录
 
-#### 2. 安装并且配置最新版本的 funcraft
+#### 2. 安装并且配置最新版本的 Serverless Devs
 
-[fun 安装手册](https://github.com/alibaba/funcraft/blob/master/docs/usage/installation-zh.md)
+[Serverless Devs 安装手册](https://www.serverless-devs.com/docs/install)
 
-在使用前，我们需要先进行配置，通过键入 fun config，然后按照提示，依次配置 Account ID、Access Key Id、Secret Access Key、 Default Region Name 即可:
+#### 3. 配置文件组成
 
-![](https://img.alicdn.com/tfs/TB1qp7Oy7Y2gK0jSZFgXXc5OFXa-622-140.png)
+- 本应用由两个服务组成：
+    - 日志服务：由 `function-log` 和 `access-log` 组成，负责日志记录和dashboard的展示
+    - 视频转码服务：`init-helper` 生成 dashboard，而 transcode 进行 OSS 中视频的转码
 
-#### 3. 部署
 
-- 更新 template.yml 文件
-    > - 全局将 logproject `log-simple-transcode` 修改成另外一个日志服务全局唯一的名字， 有两处需要修改
+#### 4. 应用部署
 
-    > - 全局将 BucketName `fc-hz-demo` 修改成自己的bucket,  有三处需要修改
+- 更新 `s.yaml` 文件
 
-    > - 注意: logstore名字 `function-logs`、 `access-logs` 和函数名字 `transcode` 一定不要修改， 后面的自定义 dashboard 依赖这三个名字， 详情可见后面章节的 dashboard 原理
+    - 全局将日志项目 `log-simple-transcode` 修改成另外一个日志服务全局唯一的名字， 有三处需要修改
 
-- 执行 `fun deploy`,  成功部署相应的函数和日志库
+    - 全局将 BucketName `bucket-demo` 修改成自己的bucket,  有一处需要修改
 
-- 执行 `fun invoke simple-transcode-service/init-helper -e '{"project":"log-simple-transcode2"}'`, 自动创建 custom-dashboard
-    > 其中这里的 -e 参数中的 project 修改成您的 yml 中日志 project
+    - **注意**: logstore名字 `function-logs`、 `access-logs` 和函数名字 `transcode` 一定不要修改， 后面的自定义 dashboard 依赖这三个名字， 详情可见后面章节的 dashboard 原理
 
+- 部署相应的函数和日志库
+
+    ```bash
+    s log-simple-transcode1 create
+    s log-simple-transcode2 create
+    s fc-simple-transcode-service-init-helper deploy
+    s fc-simple-transcode-service-transcode deploy
+    ```
+
+- 执行 `s fc-simple-transcode-service-init-helper --event '{"project":"log-simple-transcode"}'`, 自动创建 custom-dashboard
+  
+    > 其中这里的 --event 参数中的 project 修改成您的配置中的日志项目
+    
 - 手动[配置日志大盘](https://help.aliyun.com/document_detail/92647.html)
     ![](https://img.alicdn.com/tfs/TB1RhQLy5_1gK0jSZFqXXcpaXXa-1510-848.png)
 
