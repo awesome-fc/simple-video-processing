@@ -17,8 +17,9 @@
 因为音视频处理是强 CPU 密集型计算，强烈建议直接函数内存设置为 3G(2vCPU)， 当函数计算的执行环境有时间长度限制，如果 10 分钟不能满足您的需求， 您可以选择:
 
 - 对视频进行分片 -> 转码 -> 合成处理， 详情参考：[视频处理工作流系统](https://github.com/awesome-fc/fc-fnf-video-processing/tree/master/video-processing)
-    > Sereverless 工作流可以编排各种复杂的视频处理工作流程，比如第一步是分片转码， 第二步是将转码后的详情记录到数据， 第三步是根据视频属性决定是否将该视频预热到 CDN 等， 所有的步骤都是可以完全自定义的
-
+    
+> Sereverless 工作流可以编排各种复杂的视频处理工作流程，比如第一步是分片转码， 第二步是将转码后的详情记录到数据， 第三步是根据视频属性决定是否将该视频预热到 CDN 等， 所有的步骤都是可以完全自定义的
+    
 - [使用性能型实例](https://help.aliyun.com/document_detail/179379.html)
 
 ### 优势
@@ -59,18 +60,15 @@ git clone  https://github.com/awesome-fc/simple-video-processing.git
 
 进入 `simple-video-processing` 目录
 
+在 `s.yaml` 中，您可以看到本应用由两个服务组成：
+- 日志服务：由 `function-log` 和 `access-log` 组成，负责日志记录和dashboard的展示
+- 视频转码服务：`init-helper` 生成 dashboard，而 `transcode` 进行 OSS 中视频的转码
+
 #### 2. 安装并且配置最新版本的 Serverless Devs
 
 [Serverless Devs 安装手册](https://www.serverless-devs.com/docs/install)
 
-#### 3. 配置文件组成
-
-- 本应用由两个服务组成：
-    - 日志服务：由 `function-log` 和 `access-log` 组成，负责日志记录和dashboard的展示
-    - 视频转码服务：`init-helper` 生成 dashboard，而 transcode 进行 OSS 中视频的转码
-
-
-#### 4. 应用部署
+#### 3. 应用部署
 
 - 更新 `s.yaml` 文件
 
@@ -83,14 +81,15 @@ git clone  https://github.com/awesome-fc/simple-video-processing.git
 - 部署相应的函数和日志库
 
     ```bash
-    s log-simple-transcode1 create
-    s log-simple-transcode2 create
-    s fc-simple-transcode-service-init-helper deploy
-    s fc-simple-transcode-service-transcode deploy
+    s deploy
     ```
-
-- 执行 `s fc-simple-transcode-service-init-helper --event '{"project":"log-simple-transcode"}'`, 自动创建 custom-dashboard
+    
+- 自动创建 custom-dashboard
   
+    ```bash
+    s init-helper --event '{"project":"log-simple-transcode"}'
+    ```
+    
     > 其中这里的 --event 参数中的 project 修改成您的配置中的日志项目
     
 - 手动[配置日志大盘](https://help.aliyun.com/document_detail/92647.html)
@@ -125,9 +124,12 @@ json_log={
 }
 print(json.dumps(json_log))
 ```
-> 注意: 调用 ffmpeg 命令的时候， 最好将 ffmpeg 命令输出到 stdout 和 stderr 中日志不要打印出来， 理由如下：
-> - 成功调用无效打印， 日志意义不大
-> - FFmpeg 执行的日志有极低可能会影响后面的日志收集到 SLS
+#### 注意事项
+
+调用 ffmpeg 命令的时候， 最好将 ffmpeg 命令只输出到 stdout 和 stderr 中，而不打印在日志里。 理由如下：
+
+- 成功调用无效打印， 日志意义不大
+- ffmpeg 执行的日志有极低可能会影响后面的日志收集到 SLS
 
 比如 python 的做法：
 

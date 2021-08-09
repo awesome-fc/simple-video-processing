@@ -50,7 +50,7 @@ def handler(event, context):
     transcoded_filepath = '/tmp/' + shortname + DST_TARGET
     if os.path.exists(transcoded_filepath):
         os.remove(transcoded_filepath)
-    cmd = ["/code/ffmpeg", "-y", "-i", input_path, "-vf", "scale=640:480", "-b:v", "800k", "-bufsize", "800k", transcoded_filepath]
+    cmd = ["ffmpeg", "-y", "-i", input_path, "-vf", "scale=640:480", "-b:v", "800k", "-bufsize", "800k", transcoded_filepath]
     try:
         result = subprocess.run(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)

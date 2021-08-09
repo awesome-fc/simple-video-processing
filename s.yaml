@@ -7,11 +7,11 @@ vars:
     name: simple-transcode-service
     description: oss trigger function to transcode video, the function of service
     role:
-      name: simple-transcode-serviceDefaultRole3
+      name: simple-transcode-serviceDefaultRole
       policies:
-        - Version: '1'
+        - name: transcode_policy
           statement:
-            - Effect: Allow
+            - Effect: Deny
               Action:
                 - oss:ListObjects
                 - oss:GetObject
@@ -26,27 +26,22 @@ vars:
       project: log-simple-transcode
       logstore: function-logs
 services:
-  log-simple-transcode1:
+  log-simple-transcode:
     component: devsapp/sls
     props:
       regionId: ${vars.region}
       project: log-simple-transcode
       description: The log of all the functions of video transcoder app
-      logstore: access-logs
-      logstoreOption:
-        ttl: 10
-        shardCount: 2
-  log-simple-transcode2:
-    component: devsapp/sls
-    props:
-      regionId: ${vars.region}
-      project: log-simple-transcode
-      description: The log of all the functions of video transcoder app
-      logstore: function-logs
-      logstoreOption:
-        ttl: 10
-        shardCount: 2 
-  fc-simple-transcode-service-init-helper:
+      logstore: 
+        - name: access-logs
+          option:
+            ttl: 10
+            shardCount: 2
+        - name: function-logs
+          option:
+            ttl: 10
+            shardCount: 2
+  init-helper:
     component: devsapp/fc
     props:
       region: ${vars.region}
@@ -58,7 +53,7 @@ services:
         memorySize: 512
         runtime: python2.7
         codeUri: ./functions/init-helper
-  fc-simple-transcode-service-transcode:
+  transcode:
     component: devsapp/fc
     props:
       region: ${vars.region}
