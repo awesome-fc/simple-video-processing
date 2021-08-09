@@ -17,9 +17,9 @@
 因为音视频处理是强 CPU 密集型计算，强烈建议直接函数内存设置为 3G(2vCPU)， 当函数计算的执行环境有时间长度限制，如果 10 分钟不能满足您的需求， 您可以选择:
 
 - 对视频进行分片 -> 转码 -> 合成处理， 详情参考：[视频处理工作流系统](https://github.com/awesome-fc/fc-fnf-video-processing/tree/master/video-processing)
-    
+  
 > Sereverless 工作流可以编排各种复杂的视频处理工作流程，比如第一步是分片转码， 第二步是将转码后的详情记录到数据， 第三步是根据视频属性决定是否将该视频预热到 CDN 等， 所有的步骤都是可以完全自定义的
-    
+
 - [使用性能型实例](https://help.aliyun.com/document_detail/179379.html)
 
 ### 优势
@@ -87,7 +87,7 @@ git clone  https://github.com/awesome-fc/simple-video-processing.git
 - 自动创建 custom-dashboard
   
     ```bash
-    s init-helper --event '{"project":"log-simple-transcode"}'
+    s init-helper invo --event '{"project":"log-simple-transcode"}'
     ```
     
     > 其中这里的 --event 参数中的 project 修改成您的配置中的日志项目
