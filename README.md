@@ -17,7 +17,8 @@
 因为音视频处理是强 CPU 密集型计算，强烈建议直接函数内存设置为 3G(2vCPU)， 当函数计算的执行环境有时间长度限制，如果 10 分钟不能满足您的需求， 您可以选择:
 
 - 对视频进行分片 -> 转码 -> 合成处理， 详情参考：[视频处理工作流系统](https://github.com/awesome-fc/fc-fnf-video-processing/tree/master/video-processing)
-    > Sereverless 工作流可以编排各种复杂的视频处理工作流程，比如第一步是分片转码， 第二步是将转码后的详情记录到数据， 第三步是根据视频属性决定是否将该视频预热到 CDN 等， 所有的步骤都是可以完全自定义的
+  
+> Sereverless 工作流可以编排各种复杂的视频处理工作流程，比如第一步是分片转码， 第二步是将转码后的详情记录到数据， 第三步是根据视频属性决定是否将该视频预热到 CDN 等， 所有的步骤都是可以完全自定义的
 
 - [使用性能型实例](https://help.aliyun.com/document_detail/179379.html)
 
@@ -59,28 +60,38 @@ git clone  https://github.com/awesome-fc/simple-video-processing.git
 
 进入 `simple-video-processing` 目录
 
-#### 2. 安装并且配置最新版本的 funcraft
+在 `s.yaml` 中，您可以看到本应用由两个服务组成：
+- 日志服务：由 `function-log` 和 `access-log` 组成，负责日志记录和dashboard的展示
+- 视频转码服务：`init-helper` 生成 dashboard，而 `transcode` 进行 OSS 中视频的转码
 
-[fun 安装手册](https://github.com/alibaba/funcraft/blob/master/docs/usage/installation-zh.md)
+#### 2. 安装并且配置最新版本的 Serverless Devs
 
-在使用前，我们需要先进行配置，通过键入 fun config，然后按照提示，依次配置 Account ID、Access Key Id、Secret Access Key、 Default Region Name 即可:
+[Serverless Devs 安装手册](https://www.serverless-devs.com/docs/install)
 
-![](https://img.alicdn.com/tfs/TB1qp7Oy7Y2gK0jSZFgXXc5OFXa-622-140.png)
+#### 3. 应用部署
 
-#### 3. 部署
+- 更新 `s.yaml` 文件
 
-- 更新 template.yml 文件
-    > - 全局将 logproject `log-simple-transcode` 修改成另外一个日志服务全局唯一的名字， 有两处需要修改
+    - 全局将日志项目 `log-simple-transcode` 修改成另外一个日志服务全局唯一的名字， 有三处需要修改
 
-    > - 全局将 BucketName `fc-hz-demo` 修改成自己的bucket,  有三处需要修改
+    - 全局将 BucketName `bucket-demo` 修改成自己的bucket,  有一处需要修改
 
-    > - 注意: logstore名字 `function-logs`、 `access-logs` 和函数名字 `transcode` 一定不要修改， 后面的自定义 dashboard 依赖这三个名字， 详情可见后面章节的 dashboard 原理
+    - **注意**: logstore名字 `function-logs`、 `access-logs` 和函数名字 `transcode` 一定不要修改， 后面的自定义 dashboard 依赖这三个名字， 详情可见后面章节的 dashboard 原理
 
-- 执行 `fun deploy`,  成功部署相应的函数和日志库
+- 部署相应的函数和日志库
 
-- 执行 `fun invoke simple-transcode-service/init-helper -e '{"project":"log-simple-transcode2"}'`, 自动创建 custom-dashboard
-    > 其中这里的 -e 参数中的 project 修改成您的 yml 中日志 project
-
+    ```bash
+    s deploy
+    ```
+    
+- 自动创建 custom-dashboard
+  
+    ```bash
+    s init-helper invoke --event '{"project":"log-simple-transcode"}'
+    ```
+    
+    > 其中这里的 --event 参数中的 project 修改成您的配置中的日志项目
+    
 - 手动[配置日志大盘](https://help.aliyun.com/document_detail/92647.html)
     ![](https://img.alicdn.com/tfs/TB1RhQLy5_1gK0jSZFqXXcpaXXa-1510-848.png)
 
@@ -113,9 +124,12 @@ json_log={
 }
 print(json.dumps(json_log))
 ```
-> 注意: 调用 ffmpeg 命令的时候， 最好将 ffmpeg 命令输出到 stdout 和 stderr 中日志不要打印出来， 理由如下：
-> - 成功调用无效打印， 日志意义不大
-> - FFmpeg 执行的日志有极低可能会影响后面的日志收集到 SLS
+#### 注意事项
+
+调用 ffmpeg 命令的时候， 最好将 ffmpeg 命令只输出到 stdout 和 stderr 中，而不打印在日志里。 理由如下：
+
+- 成功调用无效打印， 日志意义不大
+- ffmpeg 执行的日志有极低可能会影响后面的日志收集到 SLS
 
 比如 python 的做法：
 
