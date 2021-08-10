@@ -23,14 +23,14 @@ vars:
               Resource: '*'
     internetAccess: true
     logConfig:
-      project: log-simple-tanscode
+      project: log-simple-transcode
       logstore: function-logs
 services:
-  log-simple-tanscode:
+  log-simple-transcode:
     component: devsapp/sls
     props:
       regionId: ${vars.region}
-      project: log-simple-tanscode
+      project: log-simple-transcode
       description: The log of all the functions of video transcoder app
       logstore: 
         - name: access-logs
