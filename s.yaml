@@ -2,7 +2,7 @@ edition: 1.0.0
 name: transform_code
 access: default
 vars:
-  region: cn-shenzhen
+  region: cn-qingdao
   simple-transcode-service:
     name: simple-transcode-service
     description: oss trigger function to transcode video, the function of service
@@ -11,7 +11,7 @@ vars:
       policies:
         - name: transcode_policy
           statement:
-            - Effect: Deny
+            - Effect: Allow
               Action:
                 - oss:ListObjects
                 - oss:GetObject
@@ -23,14 +23,14 @@ vars:
               Resource: '*'
     internetAccess: true
     logConfig:
-      project: log-simple-transcode
+      project: log-simple-tanscode
       logstore: function-logs
 services:
-  log-simple-transcode:
+  log-simple-tanscode:
     component: devsapp/sls
     props:
       regionId: ${vars.region}
-      project: log-simple-transcode
+      project: log-simple-tanscode
       description: The log of all the functions of video transcoder app
       logstore: 
         - name: access-logs

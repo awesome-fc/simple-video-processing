@@ -87,7 +87,7 @@ git clone  https://github.com/awesome-fc/simple-video-processing.git
 - 自动创建 custom-dashboard
   
     ```bash
-    s init-helper invo --event '{"project":"log-simple-transcode"}'
+    s init-helper invoke --event '{"project":"log-simple-transcode"}'
     ```
     
     > 其中这里的 --event 参数中的 project 修改成您的配置中的日志项目
