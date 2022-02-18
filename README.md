@@ -8,20 +8,6 @@
 
 如上图所示， 用户上传任意格式的视频到 OSS 指定前缀目录(该示例是 video/inputs/), OSS 触发器自动触发函数执行， 函数调用 FFmpeg 进行视频转码(在该示例中是将视频统一转为 640*480 的 mp4)， 并且将转码后的视频保存回 OSS 指定的输出目录(该示例是 video/outputs/)。
 
-您可以直接登录 [函数计算控制台](https://statistics.functioncompute.com/?title=ServerlessVideo&theme=ServerlessVideo&author=rsong&src=article&url=http://fc.console.aliyun.com)，选择应用中心的 **FFmpeg 视频转码服务** 这个应用一键配置并部署。
-
-如果您想手动部署并且想了解其相关原理， 进行监控 dashboard 二次开发， 可以按照下面的操作部署章节进行部署。
-
-### 注意
-
-因为音视频处理是强 CPU 密集型计算，强烈建议直接函数内存设置为 3G(2vCPU)， 当函数计算的执行环境有时间长度限制，如果 10 分钟不能满足您的需求， 您可以选择:
-
-- 对视频进行分片 -> 转码 -> 合成处理， 详情参考：[视频处理工作流系统](https://github.com/awesome-fc/fc-fnf-video-processing/tree/master/video-processing)
-  
-> Sereverless 工作流可以编排各种复杂的视频处理工作流程，比如第一步是分片转码， 第二步是将转码后的详情记录到数据， 第三步是根据视频属性决定是否将该视频预热到 CDN 等， 所有的步骤都是可以完全自定义的
-
-- [使用性能型实例](https://help.aliyun.com/document_detail/179379.html)
-
 ### 优势
 基于函数计算构建 Serverless 音视频处理系统具有如下优势：
 
@@ -55,14 +41,10 @@
 #### 1. clone 该工程
 
 ```bash
-git clone  https://github.com/awesome-fc/simple-video-processing.git
+$ git clone  https://github.com/awesome-fc/simple-video-processing.git
 ```
 
 进入 `simple-video-processing` 目录
-
-在 `s.yaml` 中，您可以看到本应用由两个服务组成：
-- 日志服务：由 `function-log` 和 `access-log` 组成，负责日志记录和dashboard的展示
-- 视频转码服务：`init-helper` 生成 dashboard，而 `transcode` 进行 OSS 中视频的转码
 
 #### 2. 安装并且配置最新版本的 Serverless Devs
 
@@ -70,73 +52,50 @@ git clone  https://github.com/awesome-fc/simple-video-processing.git
 
 #### 3. 应用部署
 
-- 更新 `s.yaml` 文件
-
-    - 全局将日志项目 `log-simple-transcode` 修改成另外一个日志服务全局唯一的名字， 有三处需要修改
-
-    - 全局将 BucketName `bucket-demo` 修改成自己的bucket,  有一处需要修改
-
-    - **注意**: logstore名字 `function-logs`、 `access-logs` 和函数名字 `transcode` 一定不要修改， 后面的自定义 dashboard 依赖这三个名字， 详情可见后面章节的 dashboard 原理
-
-- 部署相应的函数和日志库
-
-    ```bash
-    s deploy
-    ```
-    
-- 自动创建 custom-dashboard
-  
-    ```bash
-    s init-helper invoke --event '{"project":"log-simple-transcode"}'
-    ```
-    
-    > 其中这里的 --event 参数中的 project 修改成您的配置中的日志项目
-    
-- 手动[配置日志大盘](https://help.aliyun.com/document_detail/92647.html)
-    ![](https://img.alicdn.com/tfs/TB1RhQLy5_1gK0jSZFqXXcpaXXa-1510-848.png)
-
-完成上面步骤以后， 您可以在相应的 logproject 的仪表盘 tab 下看到如下两个 dashboard:
-
-![](https://img.alicdn.com/tfs/TB1XYIOy7T2gK0jSZFkXXcIQFXa-1516-766.png)
-
-> 或者您直接在浏览器输入 `https://sls.console.aliyun.com/lognext/project/<yourProjectName>/dashboard/dashboard-1584429478961-890738` 跳转到音视频监控系统 dashboard,  <yourProjectName> 替换成您的 log Project
-
-后面您可以往您配置的 bucket video/inputs 目录上传视频， 然后会触发函数进行视频的自动转码， 之后， 您将会获得如下音视频监控效果图:
-
-<img src="transcode-monitor.gif?raw=true">
-
-**dashboard 原理图:**
-
-![](https://img.alicdn.com/tfs/TB1Jo4.zoY1gK0jSZFCXXcwqXXa-1744-904.png)
-
-1. dashboard.json 依赖 logstore名字 `function-logs`、 `access-logs` 和函数名字 `transcode`， 所以最好不要修改， 要改则一起改。
-
-2. 您可以参考这个 sample 构造更适合自己场景的自定义 dashboard， 对于该示例， 只需要打印具有如下key的json字符串即可
-
-```python
-json_log={
-    "request_id": context.request_id,
-    "video_name": object_key,
-    "video_format": extension[1:],
-    "size": M_size, #单位是M
-    "start_time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start_time_stamp+8*3600)), #北京时间
-    "processed_video_location": OUTPUT_DST,
-}
-print(json.dumps(json_log))
+```bash
+s deploy
 ```
-#### 注意事项
 
-调用 ffmpeg 命令的时候， 最好将 ffmpeg 命令只输出到 stdout 和 stderr 中，而不打印在日志里。 理由如下：
+> s deploy 过程中，自动帮您生成 SLS 日志仓库和 FC 所使用的 RAM role,  第一次部署的时候， S 工具使用的 accesss 请使用权限较大的 AK（能创建role 和 日志仓库） 
 
-- 成功调用无效打印， 日志意义不大
-- ffmpeg 执行的日志有极低可能会影响后面的日志收集到 SLS
+#### 4. 调用函数
 
-比如 python 的做法：
+1. 发起 5 次异步任务函数调用
 
-```python
-try:
-    result = subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-except subprocess.CalledProcessError as exc:
-    print(result.stderr.decode()) # FFmpeg 命令有错才打印
+```bash
+$ s VideoTranscoder invoke -e '{"bucket":"dy-vedio", "object":"480P.mp4", "output_dir":"a", "dst_format":"mov"}' --invocation-type async   --stateful-async-invocation-id my1-480P-mp4
+VideoTranscoder/transcode async invoke success.
+request id: bf7d7745-886b-42fc-af21-ba87d98e1b1c
+
+$ s VideoTranscoder invoke -e '{"bucket":"dy-vedio", "object":"480P.mp4", "output_dir":"a", "dst_format":"mov"}' --invocation-type async   --stateful-async-invocation-id my2-480P-mp4
+VideoTranscoder/transcode async invoke success.
+request id: edb06071-ca26-4580-b0af-3959344cf5c3
+
+$ s VideoTranscoder invoke -e '{"bucket":"dy-vedio", "object":"480P.mp4", "output_dir":"a", "dst_format":"flv"}' --invocation-type async   --stateful-async-invocation-id my3-480P-mp4
+VideoTranscoder/transcode async invoke success.
+request id: 41101e41-3c0a-497a-b63c-35d510aef6fb
+
+$ s VideoTranscoder invoke -e '{"bucket":"dy-vedio", "object":"480P.mp4", "output_dir":"a", "dst_format":"avi"}' --invocation-type async   --stateful-async-invocation-id my4-480P-mp4
+VideoTranscoder/transcode async invoke success.
+request id: ff48cc04-c61b-4cd3-ae1b-1aaaa1f6c2b2
+
+$ s VideoTranscoder invoke -e '{"bucket":"dy-vedio", "object":"480P.mp4", "output_dir":"a", "dst_format":"m3u8"}' --invocation-type async   --stateful-async-invocation-id my5-480P-mp4
+VideoTranscoder/transcode async invoke success.
+request id: d4b02745-420c-4c9e-bc05-75cbdd2d010f
+
 ```
+
+2. 登录[FC 控制台](https://fcnext.console.aliyun.com/)
+
+![](https://img.alicdn.com/imgextra/i4/O1CN01jN5xQl1oUvle8aXFq_!!6000000005229-2-tps-1795-871.png)
+
+可以清晰看出每一次转码任务的执行情况:
+
+- A 视频是什么时候开始转码的, 什么时候转码结束
+- B 视频转码任务不太符合预期， 我中途可以点击停止调用
+- 通过调用状态过滤和时间窗口过滤，我可以知道现在有多少个任务正在执行， 历史完成情况是怎么样的
+- 可以追溯每次转码任务执行日志和触发payload
+- 当您的转码函数有异常时候， 会触发 dest-fail 函数的执行，您在这个函数可以添加您自定义的逻辑， 比如报警
+- ...
+
+转码完毕后， 您也可以登录 OSS 控制台到指定的输出目录查看转码后的视频。

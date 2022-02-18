@@ -2,80 +2,107 @@
 import logging
 import oss2
 import os
-import time
 import json
 import subprocess
+import shutil
 
 logging.getLogger("oss2.api").setLevel(logging.ERROR)
 logging.getLogger("oss2.auth").setLevel(logging.ERROR)
+LOGGER = logging.getLogger()
 
-OUTPUT_DST = os.environ["OUTPUT_DST"]
-DST_TARGET = os.environ["DST_TARGET"]
 
 def get_fileNameExt(filename):
-    (fileDir, tempfilename) = os.path.split(filename)
+    (_, tempfilename) = os.path.split(filename)
     (shortname, extension) = os.path.splitext(tempfilename)
     return shortname, extension
 
-def get_beijing_time_str(utc_time_stamp):
-    local_time = time.localtime(utc_time_stamp + 8*3600)
-    data_head = time.strftime("%Y-%m-%d %H:%M:%S", local_time)
-    data_secs = (utc_time_stamp - int(utc_time_stamp)) * 1000
-    beijing_time_str = "%s.%03d" % (data_head, data_secs)
-    return beijing_time_str
 
 def handler(event, context):
-    utc_now = time.time()
+    LOGGER.info(event)
     evt = json.loads(event)
-    evt = evt["events"]
-    oss_bucket_name = evt[0]["oss"]["bucket"]["name"]
-    object_key = evt[0]["oss"]["object"]["key"]
-    size = evt[0]["oss"]["object"]["size"]
-    shortname, extension = get_fileNameExt(object_key)
-    M_size = round(size / 1024.0 / 1024.0, 2)
-    json_log = {
-        "request_id": context.request_id,
-        "video_name": object_key,
-        "video_format": extension[1:],
-        "size": M_size,
-        "start_time": get_beijing_time_str(utc_now),
-        "processed_video_location": OUTPUT_DST,
-    }
-    print(json.dumps(json_log))
-   
+    oss_bucket_name = evt["bucket"]
+    object_key = evt["object"]
+    output_dir = evt["output_dir"]
+    dst_format = evt['dst_format']
+    shortname, _ = get_fileNameExt(object_key)
     creds = context.credentials
-    auth = oss2.StsAuth(creds.accessKeyId, creds.accessKeySecret, creds.securityToken)
-    oss_client = oss2.Bucket(auth, 'oss-%s-internal.aliyuncs.com' % context.region, oss_bucket_name)
+    auth = oss2.StsAuth(creds.accessKeyId,
+                        creds.accessKeySecret, creds.securityToken)
+    oss_client = oss2.Bucket(auth, 'oss-%s-internal.aliyuncs.com' %
+                             context.region, oss_bucket_name)
+
+    # simplifiedmeta = oss_client.get_object_meta(object_key)
+    # size = float(simplifiedmeta.headers['Content-Length'])
+    # M_size = round(size / 1024.0 / 1024.0, 2)
+
     input_path = oss_client.sign_url('GET', object_key, 6 * 3600)
-    transcoded_filepath = '/tmp/' + shortname + DST_TARGET
-    if os.path.exists(transcoded_filepath):
-        os.remove(transcoded_filepath)
-    cmd = ["ffmpeg", "-y", "-i", input_path, "-vf", "scale=640:480", "-b:v", "800k", "-bufsize", "800k", transcoded_filepath]
+    # m3u8 特殊处理
+    rid = context.request_id
+    if dst_format == "m3u8":
+        return handle_m3u8(rid, oss_client, input_path, shortname, output_dir)
+    else:
+        return handle_common(rid, oss_client, input_path, shortname, output_dir, dst_format)
+
+
+def handle_m3u8(request_id, oss_client, input_path, shortname, output_dir):
+    ts_dir = '/tmp/ts'
+    if os.path.exists(ts_dir):
+        shutil.rmtree(ts_dir)
+    os.mkdir(ts_dir)
+    transcoded_filepath = os.path.join('/tmp', shortname + '.ts')
+    split_transcoded_filepath = os.path.join(
+        ts_dir, shortname + '_%03d.ts')
+    cmd1 = ['ffmpeg', '-y', '-i', input_path, '-c:v',
+            'libx264', transcoded_filepath]
+    cmd2 = ['ffmpeg', '-y', '-i', transcoded_filepath, '-f', 'segment',
+            '-segment_list', os.path.join(ts_dir, 'playlist.m3u8'), '-segment_time', '10', split_transcoded_filepath]
     try:
-        result = subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        subprocess.run(
+            cmd1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+
+        subprocess.run(
+            cmd2, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+
+        for filename in os.listdir(ts_dir):
+            filepath = os.path.join(ts_dir, filename)
+            filekey = os.path.join(output_dir, shortname + "-m3u8", filename)
+            oss_client.put_object_from_file(filekey, filepath)
+            os.remove(filepath)
+            print("Uploaded {} to {}".format(filepath, filekey))
+
     except subprocess.CalledProcessError as exc:
-        err_ret = {
-            'request_id': context.request_id,
-            'returncode': exc.returncode,
-            'cmd': exc.cmd,
-            'output': exc.output.decode(),
-            'stderr': exc.stderr.decode(),
-            'event': evt,
-        }
-        print(json.dumps(err_ret))
-        # if transcode fail， send event to mns queue or insert in do db
-        # ...
-        raise Exception(context.request_id + " transcode failure")
-        return
+        # if transcode fail，trigger invoke dest-fail function
+        raise Exception(request_id +
+                        " transcode failure, detail: " + str(exc))
 
-    oss_client.put_object_from_file(
-        os.path.join(OUTPUT_DST, shortname + DST_TARGET), transcoded_filepath)
-    
-    # if transcode succ， send event to mns queue or insert in do db
-    # ...
+    finally:
+        if os.path.exists(ts_dir):
+            shutil.rmtree(ts_dir)
 
+        # remove ts 文件
+        if os.path.exists(transcoded_filepath):
+            os.remove(transcoded_filepath)
+
+    return {}
+
+
+def handle_common(request_id, oss_client, input_path, shortname, output_dir, dst_format):
+    transcoded_filepath = os.path.join('/tmp', shortname + '.' + dst_format)
     if os.path.exists(transcoded_filepath):
         os.remove(transcoded_filepath)
-    
-    return "ok"
+    cmd = ["ffmpeg", "-y", "-i", input_path, transcoded_filepath]
+    try:
+        subprocess.run(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+
+        oss_client.put_object_from_file(
+            os.path.join(output_dir, shortname + '.' + dst_format), transcoded_filepath)
+    except subprocess.CalledProcessError as exc:
+        # if transcode fail，trigger invoke dest-fail function
+        raise Exception(request_id +
+                        " transcode failure, detail: " + str(exc))
+    finally:
+        if os.path.exists(transcoded_filepath):
+            os.remove(transcoded_filepath)
+
+    return {}
